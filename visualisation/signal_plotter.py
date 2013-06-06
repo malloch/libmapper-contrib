@@ -137,8 +137,8 @@ class gui(QtGui.QMainWindow):
             if y_scale == 0:
                 y_scale = 1
             else:
-                y_scale = (0 - height) / (signals[i]['max'][1] - signals[i]['min'][1])
-                y_offset = (0 * signals[i]['max'][1] - height * signals[i]['max'][1]) / (signals[i]['min'][1] - signals[i]['max'][1])
+                y_scale = -height / (signals[i]['max'][1] - signals[i]['min'][1])
+                y_offset = -height * signals[i]['max'][1] / (signals[i]['min'][1] - signals[i]['max'][1])
 
             path = None
             vals = signals[i]['vals']
