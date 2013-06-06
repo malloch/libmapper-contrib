@@ -9,10 +9,11 @@ display_sec = 10.0
 
 signals = {}
 width = 800
+split = 600
 height = 600
 cleared = 1
 
-x_scale = (width - 200) / display_sec
+x_scale = split / display_sec
 
 def recheck_ranges(record):
     min = None
@@ -61,7 +62,7 @@ def on_connect(con, action):
         newsig = dev.add_input(srcsig, con['src_length'], con['src_type'], None, None, None, sig_handler)
         mon.connect(con['src_name'], dev.get_name() + srcsig)
         mon.disconnect(con['src_name'], con['dest_name'])
-        signals[srcsig] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'src_dev' : srcdev, 'label' : None}
+        signals[srcsig] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'src_dev' : srcdev, 'label' : 0}
     elif action == mapper.MDB_REMOVE:
         if srcsig != destsig or destsig == '/connect_here':
             return
@@ -81,29 +82,30 @@ dev.add_input('/connect_here')
 mon = mapper.monitor(admin, 0)
 mon.db.add_connection_callback(on_connect)
 
-class gui(QtGui.QMainWindow):
-    def __init__(self):
-        QtGui.QMainWindow.__init__(self)
-        self.setGeometry(300, 100, width, height)
-        self.setFixedSize(width, height)
-        self.setWindowTitle('libmapper signal plotter')
+def resize(pos, index):
+    global split, x_scale
+    split = pos
+    x_scale = split / display_sec
+
+class labels(QtGui.QFrame):
+    def __init__(self, parent):
+        QtGui.QFrame.__init__(self, parent)
         self.setStyleSheet("background-color: white;");
 
-        self.timer = QtCore.QBasicTimer()
-        self.timer.start(30, self)
+    def paintEvent(self, event):
+        qp = QtGui.QPainter(self)
+        self.drawLabels(event, qp)
 
-        self.label = QtGui.QLabel(self)
-        self.setGeometry(5, 5, 250, 10)
+    def drawLabels(self, event, qp):
+        for i in signals:
+            qp.setPen(signals[i]['pen'])
+            #string = i + ' ( ' + str((len(signals[i]['vals']) - 1) / display_sec) + ' Hz )'
+            qp.drawText(5, signals[i]['label'], i)
 
-    def timerEvent(self, event):
-        global cleared
-        dev.poll(10)
-        if len(signals):
-            self.repaint()
-            cleared = 0
-        elif not cleared:
-            self.repaint()
-            cleared = 1
+class plotter(QtGui.QFrame):
+    def __init__(self, parent):
+        QtGui.QFrame.__init__(self, parent)
+        self.setStyleSheet("background-color: white;");
 
     def paintEvent(self, event):
         qp = QtGui.QPainter(self)
@@ -150,29 +152,60 @@ class gui(QtGui.QMainWindow):
             for j in range(len(vals)):
                 x = (x_sub-tts[j])*x_scale
                 y = vals[j]*y_scale+y_offset
-                point = QtCore.QPointF((x_sub-tts[j])*x_scale, vals[j]*y_scale+y_offset)
+                point = QtCore.QPointF(x, y)
                 if not j:
                     path = QtGui.QPainterPath(point)
                 else:
-                    path.lineTo(x, y)
+                    path.lineTo(point)
                     if label_y_count < 3:
                         label_y += y
                         label_y_count += 1
             if label_y_count:
                 label_y /= label_y_count
-            qp.setClipRect(5, 5, width-200, height-10)
+            signals[i]['label'] *= 0.95
+            signals[i]['label'] += label_y * 0.05
             qp.strokePath(path, signals[i]['pen'])
-            if signals[i]['label'] == None:
-                signals[i]['label'] = label_y
-            else:
-                signals[i]['label'] *= 0.95
-                signals[i]['label'] += label_y * 0.05
-            qp.setPen(signals[i]['pen'])
-            qp.setClipRect(5, 5, width-10, height-10)
-            qp.drawText(width-190, signals[i]['label'], i)
+
+class gui(QtGui.QMainWindow):
+    def __init__(self):
+        QtGui.QMainWindow.__init__(self)
+        self.setGeometry(300, 100, width, height)
+        self.setWindowTitle('libmapper signal plotter')
+        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal, self)
+
+        self.setCentralWidget(self.splitter)
+
+        self.graph = plotter(self)
+
+        self.labels = labels(self)
+        self.splitter.addWidget(self.graph)
+        self.splitter.addWidget(self.labels)
+        self.splitter.setSizes([600,200])
+        self.splitter.splitterMoved.connect(resize)
+
+        self.timer = QtCore.QBasicTimer()
+        self.timer.start(30, self)
+
+    def timerEvent(self, event):
+        global cleared
+        dev.poll(10)
+        if len(signals):
+            self.graph.update(0, 0, split, height)
+            self.labels.update(0, 0, width-split, height)
+            cleared = 0
+        elif not cleared:
+            self.graph.update(0, 0, split, height)
+            self.labels.update(0, 0, width-split, height)
+            cleared = 1
+
+    def resizeEvent(self, event):
+        global width, height, split
+        size = self.size()
+        width = size.width()
+        height = size.height()
+        split = self.splitter.sizes()[0]
 
 app = QtGui.QApplication(sys.argv)
 gui = gui()
 gui.show()
 sys.exit(app.exec_())
-
