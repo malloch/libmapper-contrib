@@ -27,7 +27,7 @@ def recheck_ranges(record):
     record['max'][0] = max
 
 def sig_handler(sig, id, val, tt):
-    then = dev.now() - display_sec
+    then = device.now() - display_sec
     # Find signal
     match = signals[sig.get_name()]
     match['vals'].append(val)
@@ -51,36 +51,35 @@ def sig_handler(sig, id, val, tt):
     if recheck:
         recheck_ranges(match)
 
-def on_connect(con, action):
-    index = con['src_name'].find('/', 1)
-    srcdev = con['src_name'][0:index]
-    srcsig = con['src_name'][index:]
-    index = con['dest_name'].find('/', 1)
-    destdev = con['dest_name'][0:index]
-    destsig = con['dest_name'][index:]
-    if action == mapper.MDB_NEW and srcsig != destsig:
-        newsig = dev.add_input(srcsig, con['src_length'], con['src_type'], None, None, None, sig_handler)
-        mon.connect(con['src_name'], dev.get_name() + srcsig)
-        mon.disconnect(con['src_name'], con['dest_name'])
-        signals[srcsig] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'src_dev' : srcdev, 'label' : 0}
-    elif action == mapper.MDB_REMOVE:
-        if srcsig != destsig or destsig == '/connect_here':
+def on_connect(dev, link, sig, con, action):
+    if action == mapper.MDEV_LOCAL_ESTABLISHED and con['src_name'] != con['dest_name']:
+        newsig = device.add_input(con['src_name'], con['src_length'], con['src_type'], None, None, None, sig_handler)
+        if not newsig:
+            print 'error creating signal', con['src_name']
             return
-        dev.remove_input(signals[destsig]['sig'])
-        del signals[srcsig]
+        signals[con['src_name']] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'src_dev' : link['src_name'], 'label' : 0}
+        monitor.disconnect(link['src_name']+con['src_name'], link['dest_name']+con['dest_name'])
+        monitor.connect(link['src_name']+con['src_name'], link['dest_name']+con['src_name'])
+    elif action == mapper.MDEV_LOCAL_DESTROYED:
+        if con['src_name'] != con['dest_name'] or con['dest_name'] == '/connect_here':
+            return
+        if con['dest_name'] in signals:
+            device.remove_input(signals[con['dest_name']]['sig'])
+            del signals[con['dest_name']]
 
-def on_link(link, action):
-    if action == mapper.MDB_REMOVE:
+def on_link(dev, link, action):
+    if action == mapper.MDEV_LOCAL_DESTROYED:
         expired = [i for i in signals if signals[i]['src_dev'] == link['src_name']]
         for i in expired:
-            dev.remove_input(signals[i]['sig'])
+            device.remove_input(signals[i]['sig'])
             del signals[i]
 
 admin = mapper.admin()
-dev = mapper.device('signal_plotter', 0, admin)
-dev.add_input('/connect_here')
-mon = mapper.monitor(admin, 0)
-mon.db.add_connection_callback(on_connect)
+device = mapper.device('signal_plotter', 0, admin)
+device.add_input('/connect_here')
+device.set_link_callback(on_link)
+device.set_connection_callback(on_connect)
+monitor = mapper.monitor(admin, 0)
 
 def resize(pos, index):
     global split, x_scale
@@ -113,7 +112,7 @@ class plotter(QtGui.QFrame):
         self.drawGraph(event, qp)
 
     def drawGraph(self, event, qp):
-        then = dev.now() - display_sec
+        then = device.now() - display_sec
         x_sub = display_sec+then
         for i in signals:
             if not len (signals[i]['vals']):
@@ -188,7 +187,7 @@ class gui(QtGui.QMainWindow):
 
     def timerEvent(self, event):
         global cleared
-        dev.poll(10)
+        device.poll(10)
         if len(signals):
             self.graph.update(0, 0, split, height)
             self.labels.update(0, 0, width-split, height)
