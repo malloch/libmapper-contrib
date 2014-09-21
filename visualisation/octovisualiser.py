@@ -11,7 +11,7 @@ def on_sig(n,v):
 
 dev = mapper.device("octovisualiser", 9000)
 sigs = [dev.add_input("/arm.%d"%n, 1, 'f',
-                      None, 0.0, 1.0, (lambda n: lambda s,f: on_sig(n,f))(n))
+                      None, 0.0, 1.0, (lambda n: lambda s,i,f,t: on_sig(n,f))(n))
         for n in range(N)]
 
 root = Tkinter.Tk()
