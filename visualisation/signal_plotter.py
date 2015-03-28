@@ -53,7 +53,10 @@ def sig_handler(sig, id, val, tt):
 
 def on_connect(dev, link, sig, con, action):
     if action == mapper.MDEV_LOCAL_ESTABLISHED and con['src_name'] != con['dest_name']:
-        newsig = device.add_input(con['src_name'], con['src_length'], con['src_type'], None, None, None, sig_handler)
+        type = con['src_type']
+        if type == 'd':
+            type = 'f'
+        newsig = device.add_input(con['src_name'], 1, type, None, None, None, sig_handler)
         if not newsig:
             print 'error creating signal', con['src_name']
             return
@@ -119,6 +122,9 @@ class plotter(QtGui.QFrame):
                 continue
 
             target = signals[i]['min'][0]
+            if target == None:
+                continue
+
             if target < 0:
                 target *= 1.1
             else:
