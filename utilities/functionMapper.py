@@ -26,7 +26,7 @@ def deviceLoop():
             args[inputidx[sig.name]] = f
             got_new_values[0] = True
 
-    dev = mapper.device("functionMapper", 9000)
+    dev = mapper.device("functionMapper")
     inplist = set([])
     outlist = set([])
     while not done:
@@ -54,16 +54,16 @@ def deviceLoop():
             diff = set(newinplist).difference(inplist)
             inplist.update(newinplist)
             for n,i in enumerate(newinplist):
-                inputidx['/'+i] = n
+                inputidx[i] = n
             for i in diff:
-                dev.add_input('/'+i, 1, 'f', None, None, None, h)
+                dev.add_input_signal(i, 1, 'f', None, None, None, h)
             while len(args) < len(inplist):
                 args.append(0)
 
             diff = set(newoutlist).difference(outlist)
             outlist.update(newoutlist)
             for o in diff:
-                outputsigs[o] = dev.add_output('/'+o, 1, 'f', None, None, None)
+                outputsigs[o] = dev.add_output_signal(o, 1, 'f', None, None, None)
 
     del dev
 

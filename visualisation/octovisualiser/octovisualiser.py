@@ -9,9 +9,10 @@ def on_sig(n,v):
     values[n] = v
     redraw()
 
-dev = mapper.device("octovisualiser", 9000)
-sigs = [dev.add_input("/arm.%d"%n, 1, 'f',
-                      None, 0.0, 1.0, (lambda n: lambda s,i,f,t: on_sig(n,f))(n))
+dev = mapper.device("octovisualiser")
+sigs = [dev.add_input_signal("arm.%d"%n, 1, 'f',
+                             None, 0.0, 1.0,
+                             (lambda n: lambda s,i,f,t: on_sig(n,f))(n))
         for n in range(N)]
 
 root = Tkinter.Tk()
