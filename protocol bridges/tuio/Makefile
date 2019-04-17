@@ -1,7 +1,7 @@
 
-CC=gcc
+CC=g++
 CFLAGS=-c -Wall
-SOURCES=tuio_mapper.c
+SOURCES=tuio_mapper.cpp
 OBJECTS=$(SRC:%.c=%.o)
 LDLIBS=-L/usr/local/lib -lmapper -llo -I/usr/local/include/lo -I/usr/local/include/mapper
 EXECUTABLE=tuio_mapper
