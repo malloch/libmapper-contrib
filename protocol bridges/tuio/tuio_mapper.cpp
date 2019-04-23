@@ -79,6 +79,13 @@ public:
     int sessionId;
     Point currentPosition;
     Point lastPosition;
+
+    void print() {
+        printf("Touch %d: position: [%f, %f], velocity: [%f, %f]\n",
+               sessionId, currentPosition.x, currentPosition.y,
+               currentPosition.x - lastPosition.x,
+               currentPosition.y - lastPosition.y);
+    }
 };
 
 class Object
@@ -90,6 +97,15 @@ public:
     Point currentPosition;
     Point lastPosition;
     float angle;
+
+    void print() {
+        printf("Object %d.%d: position: [%f, %f], velocity: [%f, %f], angle: %f\n",
+               objectId, sessionId,
+               currentPosition.x, currentPosition.y,
+               currentPosition.x - lastPosition.x,
+               currentPosition.y - lastPosition.y,
+               angle);
+    }
 };
 
 Touch touches[MAX_TOUCH];
@@ -102,6 +118,7 @@ void errorHandler(int num, const char *msg, const char *where)
 
 int bundleStartHandler(lo_timetag tt, void *user_data)
 {
+//    printf("bundleStartHandler\n");
     tt_queue.now();
     dev.start_queue(tt_queue);
     return 0;
@@ -109,6 +126,7 @@ int bundleStartHandler(lo_timetag tt, void *user_data)
 
 int bundleEndHandler(void *user_data)
 {
+//    printf("bundleEndHandler\n");
     // calculate aggregate centre
     int i, count = 0;
 
@@ -167,12 +185,17 @@ int bundleEndHandler(void *user_data)
 int touchHandler(const char *path, const char *types, lo_arg ** argv,
                  int argc, lo_message msg, void *user_data)
 {
+//    printf("touchHandler\n");
+//    lo_message_pp(msg);
+//    printf("\n");
     int i, j, found;
     const char *msgType = &argv[0]->s;
     if (msgType[0] == 'a') {
         touchCount.update(argc-1, tt_queue);
         // "alive" message: check to see if any of our touches have disappeared
         for (i = 0; i < MAX_TOUCH; i++) {
+            if (touches[i].sessionId == -1)
+                continue;
             found = 0;
             for (j = 1; j < argc; j++) {
                 if (touches[i].sessionId == argv[j]->i) {
@@ -181,6 +204,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
                 }
             }
             if (!found) {
+                printf("removing touch %d\n", touches[i].sessionId);
                 touchPosition.instance(touches[i].sessionId).release(tt_queue);
                 touches[i].sessionId = -1;
             }
@@ -200,9 +224,10 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             touches[i].currentPosition.set(argv[2]->f, argv[3]->f);
         }
         else if (spare > -1) {
-            touches[spare].sessionId = sessionId;
-            touches[spare].currentPosition.set(argv[2]->f, argv[3]->f);
-            touches[spare].lastPosition = touches[spare].currentPosition;
+            i = spare;
+            touches[i].sessionId = sessionId;
+            touches[i].currentPosition.set(argv[2]->f, argv[3]->f);
+            touches[i].lastPosition = touches[i].currentPosition;
         }
         else {
             printf("no indexes available for touch %d\n", sessionId);
@@ -210,6 +235,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
         }
         touchPosition.instance(sessionId).update(touches[i].currentPosition.coord,
                                                  tt_queue);
+        touches[i].print();
     }
     return 0;
 }
@@ -217,11 +243,16 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
 int objectHandler(const char *path, const char *types, lo_arg ** argv,
                   int argc, lo_message msg, void *user_data)
 {
+//    printf("objectHandler\n");
+//    lo_message_pp(msg);
+//    printf("\n");
     int i, j, found;
     const char *msgType = &argv[0]->s;
     if (msgType[0] == 'a') {
         // "alive" message: check to see if any of our objects have disappeared
         for (i = 0; i < MAX_OBJECT; i++) {
+            if (objects[i].sessionId == -1)
+                continue;
             found = 0;
             for (j = 1; j < argc; j++) {
                 if (objects[i].sessionId == argv[j]->i) {
@@ -230,6 +261,7 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
                 }
             }
             if (!found) {
+                printf("removing object %d.%d", objects[i].objectId, i);
                 objectPosition.instance(objects[i].sessionId).release(tt_queue);
                 objects[i].sessionId = -1;
                 objects[i].objectId = -1;
@@ -268,6 +300,7 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
 
         objectPosition.instance(sessionId).update(objects[i].currentPosition.coord,
                                                   tt_queue);
+        objects[i].print();
     }
     return 0;
 }
@@ -284,21 +317,25 @@ void startup(const char *tuio_port) {
     lo_server_add_method(server, "/tuio/2Dobj", NULL, objectHandler, NULL);
     lo_server_add_bundle_handlers(server, bundleStartHandler, bundleEndHandler, NULL);
 
-    float min[2] = {0.f, 0.f}, max[2] = {1.f, 1.f};
+    int mini = 0, maxi = MAX_TOUCH;
+    touchCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "touch/count", 1, 'i',
+                                NULL, &mini, &maxi);
+
+    float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
     touchPosition = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_TOUCH,
                                    "touch/position", 2, 'f', "normalized",
-                                   min, max, 0, 0);
+                                   minf, maxf);
     touchAggregateTranslation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                                "touch/aggregate/translation", 2, 'f',
-                                               "normalized", min, max, 0, 0);
+                                               "normalized", minf, maxf);
     touchAggregateGrowth = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                           "touch/aggregate/growth", 1, 'f',
-                                          "normalized", min, max, 0, 0);
-    min[0] = -M_PI;
-    max[0] = M_PI;
+                                          "normalized", minf, maxf);
+    minf[0] = -M_PI;
+    maxf[0] = M_PI;
     touchAggregateRotation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                             "touch/aggregate/rotation", 1, 'f',
-                                            "radians", &min, &max, 0, 0);
+                                            "radians", minf, maxf);
 }
 
 void cleanup() {
@@ -319,6 +356,10 @@ int main() {
     startup("3333");
 
     while (!done) {
+        // clear screen & cursor to home
+        printf("\e[2J\e[0;0H");
+        fflush(stdout);
+
         lo_server_recv_noblock(server, 0);
         dev.poll(10);
     }
