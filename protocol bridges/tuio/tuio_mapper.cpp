@@ -15,11 +15,13 @@ mapper::Device dev("tuio");
 // touch signals
 mapper::Signal touchCount = 0;
 mapper::Signal touchPosition = 0;
+mapper::Signal touchAggregateCentroid = 0;
 mapper::Signal touchAggregateTranslation = 0;
 mapper::Signal touchAggregateGrowth = 0;
 mapper::Signal touchAggregateRotation = 0;
 
 // object signals
+mapper::Signal objectCount = 0;
 mapper::Signal objectType = 0;
 mapper::Signal objectPosition = 0;
 mapper::Signal objectAngle = 0;
@@ -56,7 +58,7 @@ class Box
 {
 public:
     Box(float minx, float miny, float maxx, float maxy) : min(minx, miny), max(maxx, maxy) {}
-    Box(float x, float y) : min(x, y), max(x, y) {}
+    Box(float _min, float _max) : min(_min, _min), max(_max, _max) {}
     Point min;
     Point max;
 
@@ -70,6 +72,11 @@ public:
 
     float width() { return max.x > min.x ? max.x - min.x : min.x - max.x; }
     float height() { return max.y > min.y ? max.y - min.y : min.y - max.y; }
+    float diagonal() {
+        float w = width();
+        float h = height();
+        return sqrtf(w * w + h * h);
+    }
 };
 
 class Touch
@@ -118,7 +125,6 @@ void errorHandler(int num, const char *msg, const char *where)
 
 int bundleStartHandler(lo_timetag tt, void *user_data)
 {
-//    printf("bundleStartHandler\n");
     tt_queue.now();
     dev.start_queue(tt_queue);
     return 0;
@@ -146,15 +152,16 @@ int bundleEndHandler(void *user_data)
     }
     if (count > 0) {
         meanPosition /= count;
+        touchAggregateCentroid.update(meanPosition.coord, tt_queue);
 
         // calculate aggregate translation
         deltaPosition /= count;
         touchAggregateTranslation.update(deltaPosition.coord, tt_queue);
 
         // find bounding box dimensions and calculate growth
-        float dw = currentBox.width() - lastBox.width();
-        float dh = currentBox.height() - lastBox.height();
-        float growth = sqrtf(dw*dw + dh*dh);
+//        float dw = currentBox.width() - lastBox.width();
+//        float dh = currentBox.height() - lastBox.height();
+        float growth = currentBox.diagonal() - lastBox.diagonal();
         touchAggregateGrowth.update(growth, tt_queue);
 
         // find aggregate rotation
@@ -174,8 +181,36 @@ int bundleEndHandler(void *user_data)
         aggrot /= count;
         touchAggregateRotation.update(aggrot, tt_queue);
 
-        printf("TRANSLATION: [%f, %f], GROWTH: %f, ROTATION: %f\n",
-               deltaPosition.x, deltaPosition.y, growth, aggrot);
+        // clear screen & cursor to home
+        printf("\e[2J\e[0;0H");
+//        fflush(stdout);
+
+        printf("OBJECTS:\n");
+        int lines = 10;
+        for (i = 0; i < MAX_OBJECT; i++) {
+            if (objects[i].sessionId == -1)
+                continue;
+            --lines;
+            objects[i].print();
+        }
+        while (--lines > 0)
+            printf("\n");
+
+        printf("TOUCHES:\n");
+        lines = 10;
+        for (i = 0; i < MAX_TOUCH; i++) {
+            if (touches[i].sessionId == -1)
+                continue;
+            --lines;
+            touches[i].print();
+        }
+        while (--lines > 0)
+            printf("\n");
+
+        printf("TOUCH AGGREGATE:\n");
+        printf("TRANS: [%f, %f], BOX: [%f, %f], GROWTH: %f, ROT: %f\n",
+               deltaPosition.x, deltaPosition.y, currentBox.width(),
+               currentBox.height(), growth, aggrot);
     }
 
     dev.send_queue(tt_queue);
@@ -205,7 +240,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing touch %d\n", touches[i].sessionId);
-                touchPosition.instance(touches[i].sessionId).release(tt_queue);
+                touchPosition.instance(i).release(tt_queue);
                 touches[i].sessionId = -1;
             }
         }
@@ -233,9 +268,8 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             printf("no indexes available for touch %d\n", sessionId);
             return 0;
         }
-        touchPosition.instance(sessionId).update(touches[i].currentPosition.coord,
-                                                 tt_queue);
-        touches[i].print();
+        touchPosition.instance(i).update(touches[i].currentPosition.coord,
+                                         tt_queue);
     }
     return 0;
 }
@@ -262,7 +296,7 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing object %d.%d", objects[i].objectId, i);
-                objectPosition.instance(objects[i].sessionId).release(tt_queue);
+                objectPosition.instance(i).release(tt_queue);
                 objects[i].sessionId = -1;
                 objects[i].objectId = -1;
             }
@@ -293,14 +327,13 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
         }
 
         objects[i].objectId = argv[2]->i;
-        objectType.instance(sessionId).update(objects[i].objectId, tt_queue);
+        objectType.instance(i).update(objects[i].objectId, tt_queue);
 
         objects[i].angle = argv[5]->f;
-        objectAngle.instance(sessionId).update(objects[i].angle, tt_queue);
+        objectAngle.instance(i).update(objects[i].angle, tt_queue);
 
-        objectPosition.instance(sessionId).update(objects[i].currentPosition.coord,
-                                                  tt_queue);
-        objects[i].print();
+        objectPosition.instance(i).update(objects[i].currentPosition.coord,
+                                          tt_queue);
     }
     return 0;
 }
@@ -317,25 +350,44 @@ void startup(const char *tuio_port) {
     lo_server_add_method(server, "/tuio/2Dobj", NULL, objectHandler, NULL);
     lo_server_add_bundle_handlers(server, bundleStartHandler, bundleEndHandler, NULL);
 
-    int mini = 0, maxi = MAX_TOUCH;
-    touchCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "touch/count", 1, 'i',
-                                NULL, &mini, &maxi);
-
     float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
     touchPosition = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_TOUCH,
                                    "touch/position", 2, 'f', "normalized",
                                    minf, maxf);
+    touchAggregateCentroid = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
+                                            "touch/aggregate/centroid", 2, 'f',
+                                            "normalized", minf, maxf);
+    objectPosition = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT,
+                                    "object/position", 2, 'f', NULL, minf, maxf);
+
+    minf[0] = minf[1] = -1.f;
     touchAggregateTranslation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                                "touch/aggregate/translation", 2, 'f',
                                                "normalized", minf, maxf);
     touchAggregateGrowth = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                           "touch/aggregate/growth", 1, 'f',
                                           "normalized", minf, maxf);
+
+    int mini = 0, maxi = MAX_TOUCH;
+    touchCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "touch/count", 1, 'i',
+                                NULL, &mini, &maxi);
+    objectCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "object/count", 1, 'i',
+                                 NULL, &mini, &maxi);
+
+    objectType = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT, "object/type",
+                                1, 'i');
+
+
+
     minf[0] = -M_PI;
     maxf[0] = M_PI;
     touchAggregateRotation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
                                             "touch/aggregate/rotation", 1, 'f',
                                             "radians", minf, maxf);
+
+    objectAngle = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT,
+                                 "object/orientation", 1, 'f', "radians",
+                                 minf, maxf);
 }
 
 void cleanup() {
@@ -356,12 +408,8 @@ int main() {
     startup("3333");
 
     while (!done) {
-        // clear screen & cursor to home
-        printf("\e[2J\e[0;0H");
-        fflush(stdout);
-
-        lo_server_recv_noblock(server, 0);
-        dev.poll(10);
+        lo_server_recv_noblock(server, 1);
+        dev.poll(1);
     }
 
     cleanup();

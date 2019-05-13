@@ -40,6 +40,11 @@ class MapperDevice {
 @_cdecl("emit_mouse_evt")
 public func emit_mouse_evt(type: Int32, _x: Float, _y: Float, count: Int) {
 //    print("Got mouse evt", type, _x, _y)
+
+    // check for NaN just in case
+    if (_x != _x || _y != _y) {
+        return
+    }
     let point:CGPoint = CGPoint(x: CGFloat(_x) * displaySize.width,
                                 y: CGFloat(_y) * displaySize.height)
 
@@ -67,12 +72,6 @@ public func emit_mouse_evt(type: Int32, _x: Float, _y: Float, count: Int) {
         evtType = CGEventType.rightMouseDragged
         break
     case SCROLL_WHEEL:
-//        if (point.x > 10) {
-//            point.x = 10
-//        }
-//        if (point.y > 10) {
-//            point.y = 10
-//        }
         post_scroll_evt(Int32(point.x), Int32(point.y))
         return
     default:

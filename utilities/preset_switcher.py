@@ -5,20 +5,21 @@
 import mapper
 import wx
 
-devices = ['/tkgui.1', '/tk_pwm.1']
+devices = ['tkgui.1', 'tk_pwm.1']
 
 configs = [
-    {'name': 'Duty', 'connections': [('/signal0', '/duty',
-                                      {'mode': mapper.MO_BYPASS,})]},
-    {'name': 'Freq', 'connections': [('/signal0', '/freq')]},
-    {'name': 'Gain', 'connections': [('/signal0', '/gain')]},
+    {'name': 'Duty', 'maps': [('signal0', 'duty',
+                               {'mode': mapper.MODE_EXPRESSION,
+                                'expression': 'y=x'})]},
+    {'name': 'Freq', 'maps': [('signal0', 'freq')]},
+    {'name': 'Gain', 'maps': [('signal0', 'gain')]},
 ]
 
 class SwitcherFrame(wx.Frame):
     def __init__(self, parent, title, devices, configurations):
         wx.Frame.__init__(self, parent, title=title, size=(300,500))
 
-        self.monitor = mapper.monitor()
+        self.database = mapper.database()
 
         self.timer = wx.Timer(self, -1)
         self.Bind(wx.EVT_TIMER, self.OnTimer, self.timer)
@@ -47,7 +48,7 @@ class SwitcherFrame(wx.Frame):
             self.Destroy()
 
     def OnTimer(self, event):
-        self.monitor.poll(0)
+        self.database.poll(0)
 
     def on_click(self, config):
         def handler(event):
@@ -56,17 +57,11 @@ class SwitcherFrame(wx.Frame):
                 self.buttons[b].SetForegroundColour("Black");
             self.buttons[config['name']].SetForegroundColour("Blue");
             self.selected = config
-            self.monitor.request_links_by_name(devices[0])
-            self.monitor.request_connections_by_name(devices[0])
 
-            db = self.monitor.db
-            if db.link_by_src_dest_names(*devices)==None:
-                self.monitor.link(*devices)
-
-            cons = dict([((devices[0]+c[0], devices[1]+c[1]), c)
-                         for c in config['connections']])
-            for con in db.connections_by_src_dest_device_names(*devices):
-                c = con['src_name'], con['dest_name']
+            maps = dict([((devices[0]+c[0], devices[1]+c[1]), c)
+                         for m in config['maps']])
+            for map in database.connections_by_src_dest_device_names(*devices):
+                m = map['src_name'], map['dest_name']
                 if c in cons:
                     if (len(cons[c])>2
                         and any([cons[c][2][p]!=con[p]
@@ -77,8 +72,8 @@ class SwitcherFrame(wx.Frame):
                         self.monitor.modify(d)
                     del cons[c]
                 else:
-                    self.monitor.disconnect(*c)
-            for c in cons:
+                    map.release()
+            for m in maps:
                 self.monitor.connect(c[0],c[1], *cons[c][2:])
 
         return handler

@@ -141,6 +141,7 @@ def process(x):
     def LoadNewCode(self, code):
         global processfunc
         try:
+            print 'new code:', code
             compiled = compile(code, 'functionMapper', 'exec')
             exec compiled
             result = process(*range(len(process.func_code.co_varnames)))
