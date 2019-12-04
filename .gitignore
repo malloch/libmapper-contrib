@@ -1,0 +1,14 @@
+*.o
+*.class
+*.a
+*.la
+*.lo
+*.so
+*.dylib
+*.dll
+*.pyc
+.DS_Store
+visualisation/build*
+input/macbook_trackpad/macbook_trackpad_mapper
+protocol bridges/tuio/tuio_mapper
+mapper.py
