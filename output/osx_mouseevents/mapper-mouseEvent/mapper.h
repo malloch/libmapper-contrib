@@ -12,7 +12,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <sys/time.h>
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 
 #define MOUSE_MOVED 0
 #define LEFT_BUTTON_UP 1

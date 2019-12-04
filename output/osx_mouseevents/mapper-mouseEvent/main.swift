@@ -14,24 +14,24 @@ print("Hello, World!")
 let displaySize = CGSize(width: 1920, height: 1080)
 var running:Bool = true
 
-class MapperDevice {
+class MprDevice {
     var device: Any
     var started: Bool = false
 
     init(name: String) {
-        self.device = start_mapper_device(name);
+        self.device = start_mpr_dev(name);
         started = true
     }
 
     public func receive() {
         if (started) {
-            poll_mapper_device(self.device as? mapper_device)
+            poll_mpr_dev(self.device as? mpr_dev)
         }
     }
 
     deinit {
         if (started == true) {
-            quit_mapper_device(device as? mapper_device);
+            quit_mpr_dev(device as? mpr_dev);
         }
         started = false
     }
@@ -93,7 +93,7 @@ private func close() {
     running = false
 }
 
-var device = MapperDevice(name: "mouse")
+var device = MprDevice(name: "mouse")
 
 signal(SIGINT) { s in close() }
 

@@ -3,30 +3,30 @@
 #include <cstdlib>
 #include <math.h>
 #include <lo/lo.h>
-#include <mapper/mapper_cpp.h>
+#include <mpr/mpr_cpp.h>
 
 #define MAX_TOUCH 10
 #define MAX_OBJECT 10
 #define TWOPI (M_PI * 2)
 
 lo_server server;
-mapper::Device dev("tuio");
+mpr::Device dev("tuio");
 
 // touch signals
-mapper::Signal touchCount = 0;
-mapper::Signal touchPosition = 0;
-mapper::Signal touchAggregateCentroid = 0;
-mapper::Signal touchAggregateTranslation = 0;
-mapper::Signal touchAggregateGrowth = 0;
-mapper::Signal touchAggregateRotation = 0;
+mpr::Signal touchCount = 0;
+mpr::Signal touchPosition = 0;
+mpr::Signal touchAggregateCentroid = 0;
+mpr::Signal touchAggregateTranslation = 0;
+mpr::Signal touchAggregateGrowth = 0;
+mpr::Signal touchAggregateRotation = 0;
 
 // object signals
-mapper::Signal objectCount = 0;
-mapper::Signal objectType = 0;
-mapper::Signal objectPosition = 0;
-mapper::Signal objectAngle = 0;
+mpr::Signal objectCount = 0;
+mpr::Signal objectType = 0;
+mpr::Signal objectPosition = 0;
+mpr::Signal objectAngle = 0;
 
-mapper::Timetag tt_queue;
+mpr::Time queue;
 
 int done = 0;
 
@@ -125,8 +125,8 @@ void errorHandler(int num, const char *msg, const char *where)
 
 int bundleStartHandler(lo_timetag tt, void *user_data)
 {
-    tt_queue.now();
-    dev.start_queue(tt_queue);
+    queue.now();
+    dev.start_queue(queue);
     return 0;
 }
 
@@ -152,17 +152,17 @@ int bundleEndHandler(void *user_data)
     }
     if (count > 0) {
         meanPosition /= count;
-        touchAggregateCentroid.update(meanPosition.coord, tt_queue);
+        touchAggregateCentroid.set_value(meanPosition.coord, queue);
 
         // calculate aggregate translation
         deltaPosition /= count;
-        touchAggregateTranslation.update(deltaPosition.coord, tt_queue);
+        touchAggregateTranslation.set_value(deltaPosition.coord, queue);
 
         // find bounding box dimensions and calculate growth
 //        float dw = currentBox.width() - lastBox.width();
 //        float dh = currentBox.height() - lastBox.height();
         float growth = currentBox.diagonal() - lastBox.diagonal();
-        touchAggregateGrowth.update(growth, tt_queue);
+        touchAggregateGrowth.set_value(growth, queue);
 
         // find aggregate rotation
         float aggrot = 0;
@@ -179,7 +179,7 @@ int bundleEndHandler(void *user_data)
             aggrot += diff;
         }
         aggrot /= count;
-        touchAggregateRotation.update(aggrot, tt_queue);
+        touchAggregateRotation.set_value(aggrot, queue);
 
         // clear screen & cursor to home
         printf("\e[2J\e[0;0H");
@@ -213,7 +213,7 @@ int bundleEndHandler(void *user_data)
                currentBox.height(), growth, aggrot);
     }
 
-    dev.send_queue(tt_queue);
+    dev.send_queue(queue);
     return 0;
 }
 
@@ -226,7 +226,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
     int i, j, found;
     const char *msgType = &argv[0]->s;
     if (msgType[0] == 'a') {
-        touchCount.update(argc-1, tt_queue);
+        touchCount.set_value(argc-1, queue);
         // "alive" message: check to see if any of our touches have disappeared
         for (i = 0; i < MAX_TOUCH; i++) {
             if (touches[i].sessionId == -1)
@@ -240,7 +240,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing touch %d\n", touches[i].sessionId);
-                touchPosition.instance(i).release(tt_queue);
+                touchPosition.instance(i).release(queue);
                 touches[i].sessionId = -1;
             }
         }
@@ -268,8 +268,8 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             printf("no indexes available for touch %d\n", sessionId);
             return 0;
         }
-        touchPosition.instance(i).update(touches[i].currentPosition.coord,
-                                         tt_queue);
+        touchPosition.instance(i).set_value(touches[i].currentPosition.coord,
+                                            queue);
     }
     return 0;
 }
@@ -296,7 +296,7 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing object %d.%d", objects[i].objectId, i);
-                objectPosition.instance(i).release(tt_queue);
+                objectPosition.instance(i).release(queue);
                 objects[i].sessionId = -1;
                 objects[i].objectId = -1;
             }
@@ -327,20 +327,20 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
         }
 
         objects[i].objectId = argv[2]->i;
-        objectType.instance(i).update(objects[i].objectId, tt_queue);
+        objectType.instance(i).set_value(objects[i].objectId, queue);
 
         objects[i].angle = argv[5]->f;
-        objectAngle.instance(i).update(objects[i].angle, tt_queue);
+        objectAngle.instance(i).set_value(objects[i].angle, queue);
 
-        objectPosition.instance(i).update(objects[i].currentPosition.coord,
-                                          tt_queue);
+        objectPosition.instance(i).set_value(objects[i].currentPosition.coord,
+                                             queue);
     }
     return 0;
 }
 
 void startup(const char *tuio_port) {
     // initialise touch array
-    int i;
+    int i, num_touch_inst = MAX_TOUCH, num_obj_inst = MAX_OBJECT, one = 1;
     for (i = 0; i < MAX_TOUCH; i++)
         touches[i].sessionId = -1;
 
@@ -351,43 +351,35 @@ void startup(const char *tuio_port) {
     lo_server_add_bundle_handlers(server, bundleStartHandler, bundleEndHandler, NULL);
 
     float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
-    touchPosition = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_TOUCH,
-                                   "touch/position", 2, 'f', "normalized",
-                                   minf, maxf);
-    touchAggregateCentroid = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
-                                            "touch/aggregate/centroid", 2, 'f',
-                                            "normalized", minf, maxf);
-    objectPosition = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT,
-                                    "object/position", 2, 'f', NULL, minf, maxf);
+    touchPosition = dev.add_sig(MPR_DIR_OUT, "touch/position", 2, 'f',
+                                "normalized", minf, maxf, &num_touch_inst);
+    touchAggregateCentroid = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/centroid",
+                                         2, 'f', "normalized", minf, maxf, &one);
+    objectPosition = dev.add_sig(MPR_DIR_OUT, "object/position", 2, 'f', NULL,
+                                 minf, maxf, &num_obj_inst);
 
     minf[0] = minf[1] = -1.f;
-    touchAggregateTranslation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
-                                               "touch/aggregate/translation", 2, 'f',
-                                               "normalized", minf, maxf);
-    touchAggregateGrowth = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
-                                          "touch/aggregate/growth", 1, 'f',
-                                          "normalized", minf, maxf);
+    touchAggregateTranslation = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/translation",
+                                            2, 'f', "normalized", minf, maxf, &one);
+    touchAggregateGrowth = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/growth",
+                                       1, 'f', "normalized", minf, maxf, &one);
 
     int mini = 0, maxi = MAX_TOUCH;
-    touchCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "touch/count", 1, 'i',
-                                NULL, &mini, &maxi);
-    objectCount = dev.add_signal(MAPPER_DIR_OUTGOING, 1, "object/count", 1, 'i',
-                                 NULL, &mini, &maxi);
+    touchCount = dev.add_sig(MPR_DIR_OUT, "touch/count", 1, 'i', NULL, &mini, &maxi);
+    objectCount = dev.add_sig(MPR_DIR_OUT, "object/count", 1, 'i', NULL, &mini, &maxi);
 
-    objectType = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT, "object/type",
-                                1, 'i');
+    objectType = dev.add_sig(MPR_DIR_OUT, "object/type", 1, 'i', NULL, NULL, NULL,
+                             &num_obj_inst);
 
 
 
     minf[0] = -M_PI;
     maxf[0] = M_PI;
-    touchAggregateRotation = dev.add_signal(MAPPER_DIR_OUTGOING, 1,
-                                            "touch/aggregate/rotation", 1, 'f',
-                                            "radians", minf, maxf);
+    touchAggregateRotation = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/rotation",
+                                         1, 'f', "radians", minf, maxf, &one);
 
-    objectAngle = dev.add_signal(MAPPER_DIR_OUTGOING, MAX_OBJECT,
-                                 "object/orientation", 1, 'f', "radians",
-                                 minf, maxf);
+    objectAngle = dev.add_sig(MPR_DIR_OUT, "object/orientation", 1, 'f',
+                              "radians", minf, maxf, &num_obj_inst);
 }
 
 void cleanup() {

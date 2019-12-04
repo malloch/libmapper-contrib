@@ -2,7 +2,7 @@
 //  Use this file to import your target's public headers that you would like to expose to Swift.
 //
 
-#include <mapper/mapper.h>
+#include <mpr/mpr.h>
 #import <Foundation/Foundation.h>
 
 #define MOUSE_MOVED 0
@@ -14,10 +14,10 @@
 #define RIGHT_MOUSE_DRAGGED 6
 #define SCROLL_WHEEL 7
 
-mapper_device start_mapper_device(const char *name);
+mpr_dev start_mpr_dev(const char *name);
 
-void quit_mapper_device(mapper_device d);
+void quit_mpr_dev(mpr_dev d);
 
-int poll_mapper_device(mapper_device d);
+int poll_mpr_dev(mpr_dev d);
 
 void post_scroll_evt(int32_t x, int32_t y);

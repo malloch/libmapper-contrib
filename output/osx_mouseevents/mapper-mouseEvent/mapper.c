@@ -10,7 +10,7 @@
 
 extern void emit_mouse_evt(int, float, float, int);
 
-mapper_device device = NULL;
+mpr_dev dev = NULL;
 
 int updated;
 float epsilon = 0.001;
@@ -102,108 +102,134 @@ int emit()
     }
     else {
         // mouse move
-        printf("emitting MOVED_MOUSE_DRAGGED\n");
+        printf("emitting MOUSE_MOVED\n");
         emit_mouse_evt(MOUSE_MOVED, current.x, current.y, 0);
     }
     return 0;
 }
 
-void inst_events(mapper_signal sig, mapper_id instance,
-                 mapper_instance_event event, mapper_timetag_t *tt)
+void cursor_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
+                    mpr_type type, const void *val, mpr_time time)
 {
-    printf("got instance event %d\n", event);
-}
-
-void cursor_handler(mapper_signal sig, mapper_id instance, const void *value,
-                    int count, mapper_timetag_t *timetag)
-{
-    float *valf = (float*)value;
+    if (!val)
+        return;
+    float *valf = (float*)val;
     current.x = valf[0];
     current.y = valf[1];
     updated = 1;
 }
 
-void left_button_handler(mapper_signal sig, mapper_id instance, const void *value,
-                         int count, mapper_timetag_t *timetag)
+void drag_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
+                  mpr_type type, const void *val, mpr_time time)
 {
-    int status = value ? sign(*(int*)value) : -1;
-    printf("left_button_handler(%d)\n", status);
+    switch (evt) {
+        case MPR_SIG_INST_NEW:
+//            if (sign(leftButtonStatus) != -1)
+//                break;
+            leftButtonStatus = 2;
+            updated = 1;
+            break;
+        case MPR_SIG_REL_UPSTRM:
+//            if (sign(leftButtonStatus) != 1)
+//                break;
+            mpr_sig_release_inst(sig, inst, time);
+            leftButtonStatus = -2;
+            updated = 1;
+            break;
+        case MPR_SIG_UPDATE: {
+            if (!val)
+                return;
+            float *valf = (float*)val;
+            current.x = valf[0];
+            current.y = valf[1];
+            updated = 1;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
+void left_button_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
+                         mpr_type type, const void *val, mpr_time time)
+{
+    int status = val ? sign(*(int*)val) : -1;
     if (status == sign(leftButtonStatus)) // no change
         return;
-    printf("left_button_handler(%d)\n", status);
     leftButtonStatus += status * 2;
     updated = 1;
 }
 
-void right_button_handler(mapper_signal sig, mapper_id instance, const void *value,
-                          int count, mapper_timetag_t *timetag)
+void right_button_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
+                          mpr_type type, const void *val, mpr_time time)
 {
-    int status = value ? sign(*(int*)value) : -1;
+    int status = val ? sign(*(int*)val) : -1;
     if (status == sign(rightButtonStatus)) // no change
         return;
-    printf("right_button_handler(%d)\n", status);
     rightButtonStatus += status * 2;
     updated = 1;
 }
 
-void scroll_handler(mapper_signal sig, mapper_id instance, const void *value,
-                    int count, mapper_timetag_t *timetag)
+void scroll_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
+                    mpr_type type, const void *val, mpr_time time)
 {
-    if (!value)
+    if (!val)
         return;
-    float *position = (float*)value;
-    printf("scroll_handler(%f, %f)\n", position[0], position[1]);
+    float *position = (float*)val;
     emit_mouse_evt(SCROLL_WHEEL, position[0], position[1], 1);
 }
 
-void zoom_handler(mapper_signal sig, mapper_id instance, const void *value,
-                  int count, mapper_timetag_t *timetag)
+void zoom_handler(mpr_sig sig, mpr_id inst, int len, mpr_type type,
+                  const void *val, mpr_time time)
 {
     ;
 }
 
-void rotation_handler(mapper_signal sig, mapper_id instance, const void *value,
-                      int count, mapper_timetag_t *timetag)
+void rotation_handler(mpr_sig sig, mpr_id inst, int len, mpr_type type,
+                      const void *val, mpr_time time)
 {
     ;
 }
 
-mapper_device start_mapper_device(const char *name) {
-    printf("starting mapper_device with name %s\n", name);
-    mapper_device d = mapper_device_new(name, 0, 0);
+mpr_dev start_mpr_dev(const char *name) {
+    printf("starting mpr_dev with name %s\n", name);
+    mpr_dev d = mpr_dev_new(name, 0);
 
+    int one = 1;
     float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
-    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "position", 2, 'f',
-                             "normalized", minf, maxf, cursor_handler, NULL);
+    mpr_sig_new(d, MPR_DIR_IN, "position", 2, 'f', "normalized", minf, maxf,
+                NULL, cursor_handler, MPR_SIG_UPDATE);
+    mpr_sig_new(d, MPR_DIR_IN, "drag", 2, 'f', "normalized", minf, maxf,
+                &one, drag_handler, MPR_SIG_ALL);
 
     minf[0] = minf[1] = -1.f;
-    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "scrollWheel", 2, 'f',
-                             "normalized", minf, maxf, scroll_handler, NULL);
+    mpr_sig_new(d, MPR_DIR_IN, "scrollWheel", 2, 'f', "normalized", minf, maxf,
+                NULL, scroll_handler, MPR_SIG_UPDATE);
 
     int mini = 0, maxi = 1;
-    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "button/left", 1, 'i',
-                             NULL, &mini, &maxi, left_button_handler, NULL);
-    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "button/right", 1, 'i',
-                             NULL, &mini, &maxi, right_button_handler, NULL);
+    mpr_sig_new(d, MPR_DIR_IN, "button/left", 1, 'i', NULL, &mini, &maxi,
+                NULL, left_button_handler, MPR_SIG_UPDATE);
+    mpr_sig_new(d, MPR_DIR_IN, "button/right", 1, 'i', NULL, &mini, &maxi,
+                NULL, right_button_handler, MPR_SIG_UPDATE);
 
-//    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "zoom", 1, 'f',
-//                             "normalized", min, max, zoom_handler, NULL);
+//    mpr_sig_new(d, MPR_DIR_IN, "zoom", 1, 'f', "normalized", min, max,
+//                &one, zoom_handler, MPR_SIG_UPDATE);
 //    min[0] = -M_PI;
 //    max[0] = M_PI;
-//    mapper_device_add_signal(d, MAPPER_DIR_INCOMING, 1, "rotation", 1, 'f',
-//                             "radians", min, max, rotation_handler, NULL);
+//    mpr_sig_new(d, MPR_DIR_IN, "rotation", 1, 'f', "radians", min, max,
+//                &one, rotation_handler, MPR_SIG_UPDATE);
     return d;
 }
 
-int poll_mapper_device(mapper_device d) {
+int poll_mpr_dev(mpr_dev d) {
     updated = 0;
-    mapper_device_poll(d, 1);
+    mpr_dev_poll(d, 1);
     if (updated)
         emit();
     return 0;
 }
 
-void quit_mapper_device(mapper_device d) {
-    printf("freeing mapper device %s\n", mapper_device_name(d));
-    mapper_device_free(d);
+void quit_mpr_dev(mpr_dev d) {
+    printf("freeing mpr dev %s\n", mpr_obj_prop_as_str(d, MPR_PROP_NAME, NULL));
+    mpr_dev_free(d);
 }
