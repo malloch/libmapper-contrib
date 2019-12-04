@@ -8,6 +8,7 @@ import mapper, random
 display_sec = 10.0
 
 signals = {}
+sigs_to_free = []
 width = 800
 split = 600
 height = 600
@@ -32,7 +33,11 @@ def sig_handler(sig, id, val, tt):
     now = tt.get_double()
     then = now - display_sec
     # Find signal
-    match = signals[sig.name]
+    try:
+        match = signals[sig.name]
+    except:
+        print 'signal not found'
+        return
     match['vals'].append(val)
     if not math.isnan(val) and not math.isinf(val):
         if match['min'][0] == None or val < match['min'][1]:
@@ -57,31 +62,36 @@ def sig_handler(sig, id, val, tt):
 
 def on_map(map, action):
     print 'on_map!'
-    srcname = map.source().signal().name
+    if map.source().signal().device().is_local:
+        map.release()
+        return
+    elif not map.destination().signal().device().is_local:
+        return
+    srcname = map.source().signal().device().name+'/'+map.source().signal().name
     dstname = map.destination().signal().name
     if action == mapper.ADDED:
-        print '  ADDED map to ', dstname
-        if dstname != 'connect_here':
+        print '  ADDED map ', srcname, '->', '<self>/'+dstname
+        if dstname == srcname:
             return
-        srcname = map.source().signal().device().name + map.source().signal().name
-        newsig = device.add_input_signal(srcname,
-                                         1, 'f', None, None, None,
+        print '  rerouting...'
+        newsig = device.add_input_signal(srcname, 1, 'f', None, None, None,
                                          sig_handler)
         if not newsig:
-            print 'error creating signal', srcname
+            print '  error creating signal', srcnamefull
             return
         signals[srcname] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'label' : 0}
-        print 'signals:', signals
+        print '  signals:', signals
         mapper.map(map.source().signal(), newsig).push()
         map.release()
     elif action == mapper.REMOVED:
-        print '  REMOVED'
-        if srcname != dstname or dstname == 'connect_here':
+        print '  REMOVED', srcname, '->', '<self>/'+dstname
+        if dstname == 'connect_here' or dstname != srcname:
             return
-        name = map.destination().signal().name
-        if name in signals:
-            device.remove_input_signal(signals[name]['sig'])
-            del signals[name]
+        if dstname in signals:
+            print '  freeing local signal', dstname
+            sigs_to_free.append(signals[dstname]['sig'])
+#            device.remove_signal(signals[dstname]['sig'])
+            del signals[dstname]
 
 device = mapper.device('signal_plotter')
 device.add_input_signal('connect_here')
@@ -136,7 +146,7 @@ class plotter(QtGui.QFrame):
             y_offset = 0
             y_scale = signals[i]['max'][1] - signals[i]['min'][1]
             if y_scale == 0:
-                y_scale = 1
+                y_scale = -0.5
             else:
                 y_scale = -height / y_scale
                 y_offset = height - signals[i]['min'][1] * y_scale
@@ -171,8 +181,8 @@ class plotter(QtGui.QFrame):
                 wasNan = False
             if label_y_count:
                 label_y /= label_y_count
-            signals[i]['label'] *= 0.95
-            signals[i]['label'] += label_y * 0.05
+            signals[i]['label'] *= 0.99
+            signals[i]['label'] += label_y * 0.01
             qp.strokePath(path, signals[i]['pen'])
 
 class gui(QtGui.QMainWindow):
@@ -198,6 +208,8 @@ class gui(QtGui.QMainWindow):
     def timerEvent(self, event):
         global cleared
         device.poll(10)
+        while len(sigs_to_free):
+            device.remove_signal(sigs_to_free.pop())
         if len(signals):
             self.graph.update(0, 0, split, height)
             self.labels.update(0, 0, width-split, height)
