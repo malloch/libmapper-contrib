@@ -438,7 +438,7 @@ public:
   // non-property methods:
   bool realVisibility() const;
   
-signals:
+Q_SIGNALS:
   void layerChanged(QCPLayer *newLayer);
   
 protected:
@@ -1219,7 +1219,7 @@ public:
   static Qt::Orientation orientation(AxisType type) { return type==atBottom||type==atTop ? Qt::Horizontal : Qt::Vertical; }
   static AxisType opposite(AxisType type);
   
-signals:
+Q_SIGNALS:
   void ticksRequest();
   void rangeChanged(const QCPRange &newRange);
   void rangeChanged(const QCPRange &newRange, const QCPRange &oldRange);
@@ -1444,7 +1444,7 @@ public:
   void rescaleKeyAxis(bool onlyEnlarge=false) const;
   void rescaleValueAxis(bool onlyEnlarge=false) const;
   
-signals:
+Q_SIGNALS:
   void selectionChanged(bool selected);
   void selectableChanged(bool selectable);
   
@@ -1639,7 +1639,7 @@ public:
   QCPItemAnchor *anchor(const QString &name) const;
   bool hasAnchor(const QString &name) const;
   
-signals:
+Q_SIGNALS:
   void selectionChanged(bool selected);
   void selectableChanged(bool selectable);
   
@@ -1819,7 +1819,7 @@ public:
   QCPAxis *xAxis, *yAxis, *xAxis2, *yAxis2;
   QCPLegend *legend;
   
-signals:
+Q_SIGNALS:
   void mouseDoubleClick(QMouseEvent *event);
   void mousePress(QMouseEvent *event);
   void mouseMove(QMouseEvent *event);
@@ -2113,7 +2113,7 @@ public:
   // reimplemented virtual methods:
   virtual double selectTest(const QPointF &pos, bool onlySelectable, QVariant *details=0) const;
   
-signals:
+Q_SIGNALS:
   void selectionChanged(bool selected);
   void selectableChanged(bool selectable);
   
@@ -2249,7 +2249,7 @@ public:
   void clearItems();
   QList<QCPAbstractLegendItem*> selectedItems() const;
   
-signals:
+Q_SIGNALS:
   void selectionChanged(QCPLegend::SelectableParts parts);
   void selectableChanged(QCPLegend::SelectableParts parts);
   
@@ -2327,7 +2327,7 @@ public:
   // reimplemented virtual methods:
   virtual double selectTest(const QPointF &pos, bool onlySelectable, QVariant *details=0) const;
   
-signals:
+Q_SIGNALS:
   void selectionChanged(bool selected);
   void selectableChanged(bool selectable);
   
@@ -2428,7 +2428,7 @@ public:
   // reimplemented virtual methods:
   virtual void update(UpdatePhase phase);
   
-signals:
+Q_SIGNALS:
   void dataRangeChanged(QCPRange newRange);
   void dataScaleTypeChanged(QCPAxis::ScaleType scaleType);
   void gradientChanged(QCPColorGradient newGradient);
@@ -3084,7 +3084,7 @@ public:
   virtual void clearData();
   virtual double selectTest(const QPointF &pos, bool onlySelectable, QVariant *details=0) const;
   
-signals:
+Q_SIGNALS:
   void dataRangeChanged(QCPRange newRange);
   void dataScaleTypeChanged(QCPAxis::ScaleType scaleType);
   void gradientChanged(QCPColorGradient newGradient);

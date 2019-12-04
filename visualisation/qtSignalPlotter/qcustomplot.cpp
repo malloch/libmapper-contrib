@@ -1144,7 +1144,7 @@ bool QCPLayerable::moveToLayer(QCPLayer *layer, bool prepend)
   if (mLayer)
     mLayer->addChild(this, prepend);
   if (mLayer != oldLayer)
-    emit layerChanged(mLayer);
+    Q_EMIT layerChanged(mLayer);
   return true;
 }
 
@@ -1945,7 +1945,7 @@ void QCPLayoutElement::update(UpdatePhase phase)
     {
       // set the margins of this layout element according to automatic margin calculation, either directly or via a margin group:
       QMargins newMargins = mMargins;
-      foreach (QCP::MarginSide side, QList<QCP::MarginSide>() << QCP::msLeft << QCP::msRight << QCP::msTop << QCP::msBottom)
+      for (auto const& side : QList<QCP::MarginSide>() << QCP::msLeft << QCP::msRight << QCP::msTop << QCP::msBottom)
       {
         if (mAutoMargins.testFlag(side)) // this side's margin shall be calculated automatically
         {
@@ -2038,7 +2038,7 @@ double QCPLayoutElement::selectTest(const QPointF &pos, bool onlySelectable, QVa
 */
 void QCPLayoutElement::parentPlotInitialized(QCustomPlot *parentPlot)
 {
-  foreach (QCPLayoutElement* el, elements(false))
+  for (auto const& el : elements(false))
   {
     if (!el->parentPlot())
       el->initializeParentPlot(parentPlot);
@@ -4178,7 +4178,7 @@ void QCPAxis::setScaleType(QCPAxis::ScaleType type)
     if (mScaleType == stLogarithmic)
       setRange(mRange.sanitizedForLogScale());
     mCachedMarginValid = false;
-    emit scaleTypeChanged(mScaleType);
+    Q_EMIT scaleTypeChanged(mScaleType);
   }
 }
 
@@ -4223,8 +4223,8 @@ void QCPAxis::setRange(const QCPRange &range)
     mRange = range.sanitizedForLinScale();
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -4242,7 +4242,7 @@ void QCPAxis::setSelectableParts(const SelectableParts &selectable)
   if (mSelectableParts != selectable)
   {
     mSelectableParts = selectable;
-    emit selectableChanged(mSelectableParts);
+    Q_EMIT selectableChanged(mSelectableParts);
   }
 }
 
@@ -4266,7 +4266,7 @@ void QCPAxis::setSelectedParts(const SelectableParts &selected)
   if (mSelectedParts != selected)
   {
     mSelectedParts = selected;
-    emit selectionChanged(mSelectedParts);
+    Q_EMIT selectionChanged(mSelectedParts);
   }
 }
 
@@ -4296,8 +4296,8 @@ void QCPAxis::setRange(double lower, double upper)
     mRange = mRange.sanitizedForLinScale();
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -4340,8 +4340,8 @@ void QCPAxis::setRangeLower(double lower)
     mRange = mRange.sanitizedForLinScale();
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -4363,8 +4363,8 @@ void QCPAxis::setRangeUpper(double upper)
     mRange = mRange.sanitizedForLinScale();
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -5165,8 +5165,8 @@ void QCPAxis::moveRange(double diff)
     mRange.upper *= diff;
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -5198,8 +5198,8 @@ void QCPAxis::scaleRange(double factor, double center)
       qDebug() << Q_FUNC_INFO << "Center of scaling operation doesn't lie in same logarithmic sign domain as range:" << center;
   }
   mCachedMarginValid = false;
-  emit rangeChanged(mRange);
-  emit rangeChanged(mRange, oldRange);
+  Q_EMIT rangeChanged(mRange);
+  Q_EMIT rangeChanged(mRange, oldRange);
 }
 
 /*!
@@ -5527,7 +5527,7 @@ void QCPAxis::setupTickVectors()
     generateAutoTicks();
   } else
   {
-    emit ticksRequest();
+    Q_EMIT ticksRequest();
   }
   
   visibleTickBounds(mLowestVisibleTick, mHighestVisibleTick);
@@ -5592,7 +5592,7 @@ void QCPAxis::setupTickVectors()
   {
     if (mAutoTicks) // ticks generated automatically, but not ticklabels, so emit ticksRequest here for labels
     {
-      emit ticksRequest();
+      Q_EMIT ticksRequest();
     }
     // make sure provided tick label vector has correct (minimal) length:
     if (mTickVectorLabels.size() < mTickVector.size())
@@ -6997,7 +6997,7 @@ void QCPAbstractPlottable::setSelectable(bool selectable)
   if (mSelectable != selectable)
   {
     mSelectable = selectable;
-    emit selectableChanged(mSelectable);
+    Q_EMIT selectableChanged(mSelectable);
   }
 }
 
@@ -7020,7 +7020,7 @@ void QCPAbstractPlottable::setSelected(bool selected)
   if (mSelected != selected)
   {
     mSelected = selected;
-    emit selectionChanged(mSelected);
+    Q_EMIT selectionChanged(mSelected);
   }
 }
 
@@ -7461,12 +7461,12 @@ QCPItemAnchor::QCPItemAnchor(QCustomPlot *parentPlot, QCPAbstractItem *parentIte
 QCPItemAnchor::~QCPItemAnchor()
 {
   // unregister as parent at children:
-  foreach (QCPItemPosition *child, mChildrenX.toList())
+  for (auto const& child : mChildrenX.toList())
   {
     if (child->parentAnchorX() == this)
       child->setParentAnchorX(0); // this acts back on this anchor and child removes itself from mChildrenX
   }
-  foreach (QCPItemPosition *child, mChildrenY.toList())
+  for (auto const& child : mChildrenY.toList())
   {
     if (child->parentAnchorY() == this)
       child->setParentAnchorY(0); // this acts back on this anchor and child removes itself from mChildrenY
@@ -7639,12 +7639,12 @@ QCPItemPosition::~QCPItemPosition()
   // unregister as parent at children:
   // Note: this is done in ~QCPItemAnchor again, but it's important QCPItemPosition does it itself, because only then
   //       the setParentAnchor(0) call the correct QCPItemPosition::pixelPoint function instead of QCPItemAnchor::pixelPoint
-  foreach (QCPItemPosition *child, mChildrenX.toList())
+  for (auto const& child : mChildrenX.toList())
   {
     if (child->parentAnchorX() == this)
       child->setParentAnchorX(0); // this acts back on this anchor and child removes itself from mChildrenX
   }
-  foreach (QCPItemPosition *child, mChildrenY.toList())
+  for (auto const& child : mChildrenY.toList())
   {
     if (child->parentAnchorY() == this)
       child->setParentAnchorY(0); // this acts back on this anchor and child removes itself from mChildrenY
@@ -8418,7 +8418,7 @@ void QCPAbstractItem::setSelectable(bool selectable)
   if (mSelectable != selectable)
   {
     mSelectable = selectable;
-    emit selectableChanged(mSelectable);
+    Q_EMIT selectableChanged(mSelectable);
   }
 }
 
@@ -8441,7 +8441,7 @@ void QCPAbstractItem::setSelected(bool selected)
   if (mSelected != selected)
   {
     mSelected = selected;
-    emit selectionChanged(mSelected);
+    Q_EMIT selectionChanged(mSelected);
   }
 }
 
@@ -9610,7 +9610,7 @@ int QCustomPlot::plottableCount() const
 QList<QCPAbstractPlottable*> QCustomPlot::selectedPlottables() const
 {
   QList<QCPAbstractPlottable*> result;
-  foreach (QCPAbstractPlottable *plottable, mPlottables)
+  for (auto const& plottable : mPlottables)
   {
     if (plottable->selected())
       result.append(plottable);
@@ -9635,7 +9635,7 @@ QCPAbstractPlottable *QCustomPlot::plottableAt(const QPointF &pos, bool onlySele
   QCPAbstractPlottable *resultPlottable = 0;
   double resultDistance = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance as selections, so initialize with that value
   
-  foreach (QCPAbstractPlottable *plottable, mPlottables)
+  for (auto const& plottable : mPlottables)
   {
     if (onlySelectable && !plottable->selectable()) // we could have also passed onlySelectable to the selectTest function, but checking here is faster, because we have access to QCPabstractPlottable::selectable
       continue;
@@ -9800,7 +9800,7 @@ int QCustomPlot::graphCount() const
 QList<QCPGraph*> QCustomPlot::selectedGraphs() const
 {
   QList<QCPGraph*> result;
-  foreach (QCPGraph *graph, mGraphs)
+  for (auto const& graph : mGraphs)
   {
     if (graph->selected())
       result.append(graph);
@@ -9934,7 +9934,7 @@ int QCustomPlot::itemCount() const
 QList<QCPAbstractItem*> QCustomPlot::selectedItems() const
 {
   QList<QCPAbstractItem*> result;
-  foreach (QCPAbstractItem *item, mItems)
+  for (auto const& item : mItems)
   {
     if (item->selected())
       result.append(item);
@@ -9960,7 +9960,7 @@ QCPAbstractItem *QCustomPlot::itemAt(const QPointF &pos, bool onlySelectable) co
   QCPAbstractItem *resultItem = 0;
   double resultDistance = mSelectionTolerance; // only regard clicks with distances smaller than mSelectionTolerance as selections, so initialize with that value
   
-  foreach (QCPAbstractItem *item, mItems)
+  for (auto const& item : mItems)
   {
     if (onlySelectable && !item->selectable()) // we could have also passed onlySelectable to the selectTest function, but checking here is faster, because we have access to QCPAbstractItem::selectable
       continue;
@@ -9998,7 +9998,7 @@ bool QCustomPlot::hasItem(QCPAbstractItem *item) const
 */
 QCPLayer *QCustomPlot::layer(const QString &name) const
 {
-  foreach (QCPLayer *layer, mLayers)
+  for (auto const& layer : mLayers)
   {
     if (layer->name() == name)
       return layer;
@@ -10246,7 +10246,7 @@ QList<QCPAxisRect*> QCustomPlot::axisRects() const
   
   while (!elementStack.isEmpty())
   {
-    foreach (QCPLayoutElement *element, elementStack.pop()->elements(false))
+    for (auto const& element : elementStack.pop()->elements(false))
     {
       if (element)
       {
@@ -10276,7 +10276,7 @@ QCPLayoutElement *QCustomPlot::layoutElementAt(const QPointF &pos) const
   while (searchSubElements && currentElement)
   {
     searchSubElements = false;
-    foreach (QCPLayoutElement *subElement, currentElement->elements(false))
+    for (auto const& subElement : currentElement->elements(false))
     {
       if (subElement && subElement->realVisibility() && subElement->selectTest(pos, false) >= 0)
       {
@@ -10299,10 +10299,10 @@ QCPLayoutElement *QCustomPlot::layoutElementAt(const QPointF &pos) const
 QList<QCPAxis*> QCustomPlot::selectedAxes() const
 {
   QList<QCPAxis*> result, allAxes;
-  foreach (QCPAxisRect *rect, axisRects())
+  for (auto const& rect : axisRects())
     allAxes << rect->axes();
   
-  foreach (QCPAxis *axis, allAxes)
+  for (auto const& axis : allAxes)
   {
     if (axis->selectedParts() != QCPAxis::spNone)
       result.append(axis);
@@ -10328,7 +10328,7 @@ QList<QCPLegend*> QCustomPlot::selectedLegends() const
   
   while (!elementStack.isEmpty())
   {
-    foreach (QCPLayoutElement *subElement, elementStack.pop()->elements(false))
+    for (auto const& subElement : elementStack.pop()->elements(false))
     {
       if (subElement)
       {
@@ -10356,9 +10356,9 @@ QList<QCPLegend*> QCustomPlot::selectedLegends() const
 */
 void QCustomPlot::deselectAll()
 {
-  foreach (QCPLayer *layer, mLayers)
+  for (auto const& layer : mLayers)
   {
-    foreach (QCPLayerable *layerable, layer->children())
+    for (auto const& layerable : layer->children())
       layerable->deselectEvent(0);
   }
 }
@@ -10381,7 +10381,7 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
   if (mReplotting) // incase signals loop back to replot slot
     return;
   mReplotting = true;
-  emit beforeReplot();
+  Q_EMIT beforeReplot();
   
   mPaintBuffer.fill(mBackgroundBrush.style() == Qt::SolidPattern ? mBackgroundBrush.color() : Qt::transparent);
   QCPPainter painter;
@@ -10400,7 +10400,7 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
   } else // might happen if QCustomPlot has width or height zero
     qDebug() << Q_FUNC_INFO << "Couldn't activate painter on buffer. This usually happens because QCustomPlot has width or height zero.";
   
-  emit afterReplot();
+  Q_EMIT afterReplot();
   mReplotting = false;
 }
 
@@ -10415,10 +10415,10 @@ void QCustomPlot::replot(QCustomPlot::RefreshPriority refreshPriority)
 void QCustomPlot::rescaleAxes(bool onlyVisiblePlottables)
 {
   QList<QCPAxis*> allAxes;
-  foreach (QCPAxisRect *rect, axisRects())
+  for (auto const& rect : axisRects())
     allAxes << rect->axes();
   
-  foreach (QCPAxis *axis, allAxes)
+  for (auto const& axis : allAxes)
     axis->rescale(onlyVisiblePlottables);
 }
 
@@ -10697,24 +10697,24 @@ void QCustomPlot::resizeEvent(QResizeEvent *event)
 */
 void QCustomPlot::mouseDoubleClickEvent(QMouseEvent *event)
 {
-  emit mouseDoubleClick(event);
+  Q_EMIT mouseDoubleClick(event);
   
   QVariant details;
   QCPLayerable *clickedLayerable = layerableAt(event->pos(), false, &details);
   
   // emit specialized object double click signals:
   if (QCPAbstractPlottable *ap = qobject_cast<QCPAbstractPlottable*>(clickedLayerable))
-    emit plottableDoubleClick(ap, event);
+    Q_EMIT plottableDoubleClick(ap, event);
   else if (QCPAxis *ax = qobject_cast<QCPAxis*>(clickedLayerable))
-    emit axisDoubleClick(ax, details.value<QCPAxis::SelectablePart>(), event);
+    Q_EMIT axisDoubleClick(ax, details.value<QCPAxis::SelectablePart>(), event);
   else if (QCPAbstractItem *ai = qobject_cast<QCPAbstractItem*>(clickedLayerable))
-    emit itemDoubleClick(ai, event);
+    Q_EMIT itemDoubleClick(ai, event);
   else if (QCPLegend *lg = qobject_cast<QCPLegend*>(clickedLayerable))
-    emit legendDoubleClick(lg, 0, event);
+    Q_EMIT legendDoubleClick(lg, 0, event);
   else if (QCPAbstractLegendItem *li = qobject_cast<QCPAbstractLegendItem*>(clickedLayerable))
-    emit legendDoubleClick(li->parentLegend(), li, event);
+    Q_EMIT legendDoubleClick(li->parentLegend(), li, event);
   else if (QCPPlotTitle *pt = qobject_cast<QCPPlotTitle*>(clickedLayerable))
-    emit titleDoubleClick(event, pt);
+    Q_EMIT titleDoubleClick(event, pt);
   
   // call double click event of affected layout element:
   if (QCPLayoutElement *el = layoutElementAt(event->pos()))
@@ -10739,7 +10739,7 @@ void QCustomPlot::mouseDoubleClickEvent(QMouseEvent *event)
 */
 void QCustomPlot::mousePressEvent(QMouseEvent *event)
 {
-  emit mousePress(event);
+  Q_EMIT mousePress(event);
   mMousePressPos = event->pos(); // need this to determine in releaseEvent whether it was a click (no position change between press and release)
   
   // call event of affected layout element:
@@ -10761,7 +10761,7 @@ void QCustomPlot::mousePressEvent(QMouseEvent *event)
 */
 void QCustomPlot::mouseMoveEvent(QMouseEvent *event)
 {
-  emit mouseMove(event);
+  Q_EMIT mouseMove(event);
 
   // call event of affected layout element:
   if (mMouseEventElement)
@@ -10786,7 +10786,7 @@ void QCustomPlot::mouseMoveEvent(QMouseEvent *event)
 */
 void QCustomPlot::mouseReleaseEvent(QMouseEvent *event)
 {
-  emit mouseRelease(event);
+  Q_EMIT mouseRelease(event);
   bool doReplot = false;
   
   if ((mMousePressPos-event->pos()).manhattanLength() < 5) // determine whether it was a click operation
@@ -10801,9 +10801,9 @@ void QCustomPlot::mouseReleaseEvent(QMouseEvent *event)
       // deselect all other layerables if not additive selection:
       if (!additive)
       {
-        foreach (QCPLayer *layer, mLayers)
+        for (auto const& layer : mLayers)
         {
-          foreach (QCPLayerable *layerable, layer->children())
+          for (auto const& layerable : layer->children())
           {
             if (layerable != clickedLayerable && mInteractions.testFlag(layerable->selectionCategory()))
             {
@@ -10823,24 +10823,24 @@ void QCustomPlot::mouseReleaseEvent(QMouseEvent *event)
       }
       doReplot = true;
       if (selectionStateChanged)
-        emit selectionChangedByUser();
+        Q_EMIT selectionChangedByUser();
     }
     
     // emit specialized object click signals:
     QVariant details;
     QCPLayerable *clickedLayerable = layerableAt(event->pos(), false, &details); // for these signals, selectability is ignored, that's why we call this again with onlySelectable set to false
     if (QCPAbstractPlottable *ap = qobject_cast<QCPAbstractPlottable*>(clickedLayerable))
-      emit plottableClick(ap, event);
+      Q_EMIT plottableClick(ap, event);
     else if (QCPAxis *ax = qobject_cast<QCPAxis*>(clickedLayerable))
-      emit axisClick(ax, details.value<QCPAxis::SelectablePart>(), event);
+      Q_EMIT axisClick(ax, details.value<QCPAxis::SelectablePart>(), event);
     else if (QCPAbstractItem *ai = qobject_cast<QCPAbstractItem*>(clickedLayerable))
-      emit itemClick(ai, event);
+      Q_EMIT itemClick(ai, event);
     else if (QCPLegend *lg = qobject_cast<QCPLegend*>(clickedLayerable))
-      emit legendClick(lg, 0, event);
+      Q_EMIT legendClick(lg, 0, event);
     else if (QCPAbstractLegendItem *li = qobject_cast<QCPAbstractLegendItem*>(clickedLayerable))
-      emit legendClick(li->parentLegend(), li, event);
+      Q_EMIT legendClick(li->parentLegend(), li, event);
     else if (QCPPlotTitle *pt = qobject_cast<QCPPlotTitle*>(clickedLayerable))
-      emit titleClick(event, pt);
+      Q_EMIT titleClick(event, pt);
   }
   
   // call event of affected layout element:
@@ -10864,7 +10864,7 @@ void QCustomPlot::mouseReleaseEvent(QMouseEvent *event)
 */
 void QCustomPlot::wheelEvent(QWheelEvent *event)
 {
-  emit mouseWheel(event);
+  Q_EMIT mouseWheel(event);
   
   // call event of affected layout element:
   if (QCPLayoutElement *el = layoutElementAt(event->pos()))
@@ -10891,9 +10891,9 @@ void QCustomPlot::draw(QCPPainter *painter)
   drawBackground(painter);
 
   // draw all layered objects (grid, axes, plottables, items, legend,...):
-  foreach (QCPLayer *layer, mLayers)
+  for (auto const& layer : mLayers)
   {
-    foreach (QCPLayerable *child, layer->children())
+    for (auto const& child : layer->children())
     {
       if (child->realVisibility())
       {
@@ -10907,7 +10907,7 @@ void QCustomPlot::draw(QCPPainter *painter)
   }
   
   /* Debug code to draw all layout element rects
-  foreach (QCPLayoutElement* el, findChildren<QCPLayoutElement*>())
+  for (auto const& el : findChildren<QCPLayoutElement*>())
   {
     painter->setBrush(Qt::NoBrush);
     painter->setPen(QPen(QColor(0, 0, 0, 100), 0, Qt::DashLine));
@@ -12723,7 +12723,7 @@ void QCPAbstractLegendItem::setSelectable(bool selectable)
   if (mSelectable != selectable)
   {
     mSelectable = selectable;
-    emit selectableChanged(mSelectable);
+    Q_EMIT selectableChanged(mSelectable);
   }
 }
 
@@ -12740,7 +12740,7 @@ void QCPAbstractLegendItem::setSelected(bool selected)
   if (mSelected != selected)
   {
     mSelected = selected;
-    emit selectionChanged(mSelected);
+    Q_EMIT selectionChanged(mSelected);
   }
 }
 
@@ -13119,7 +13119,7 @@ void QCPLegend::setSelectableParts(const SelectableParts &selectable)
   if (mSelectableParts != selectable)
   {
     mSelectableParts = selectable;
-    emit selectableChanged(mSelectableParts);
+    Q_EMIT selectableChanged(mSelectableParts);
   }
 }
 
@@ -13165,7 +13165,7 @@ void QCPLegend::setSelectedParts(const SelectableParts &selected)
       }
     }
     mSelectedParts = newSelected;
-    emit selectionChanged(mSelectedParts);
+    Q_EMIT selectionChanged(mSelectedParts);
   }
 }
 
@@ -13623,7 +13623,7 @@ void QCPPlotTitle::setSelectable(bool selectable)
   if (mSelectable != selectable)
   {
     mSelectable = selectable;
-    emit selectableChanged(mSelectable);
+    Q_EMIT selectableChanged(mSelectable);
   }
 }
 
@@ -13639,7 +13639,7 @@ void QCPPlotTitle::setSelected(bool selected)
   if (mSelected != selected)
   {
     mSelected = selected;
-    emit selectionChanged(mSelected);
+    Q_EMIT selectionChanged(mSelected);
   }
 }
 
@@ -13920,7 +13920,7 @@ void QCPColorScale::setType(QCPAxis::AxisType type)
       disconnect(mColorAxis.data(), SIGNAL(rangeChanged(QCPRange)), this, SLOT(setDataRange(QCPRange)));
       disconnect(mColorAxis.data(), SIGNAL(scaleTypeChanged(QCPAxis::ScaleType)), this, SLOT(setDataScaleType(QCPAxis::ScaleType)));
     }
-    foreach (QCPAxis::AxisType atype, QList<QCPAxis::AxisType>() << QCPAxis::atLeft << QCPAxis::atRight << QCPAxis::atBottom << QCPAxis::atTop)
+    for (auto const& atype : QList<QCPAxis::AxisType>() << QCPAxis::atLeft << QCPAxis::atRight << QCPAxis::atBottom << QCPAxis::atTop)
     {
       mAxisRect.data()->axis(atype)->setTicks(atype == mType);
       mAxisRect.data()->axis(atype)->setTickLabels(atype== mType);
@@ -13954,7 +13954,7 @@ void QCPColorScale::setDataRange(const QCPRange &dataRange)
     mDataRange = dataRange;
     if (mColorAxis)
       mColorAxis.data()->setRange(mDataRange);
-    emit dataRangeChanged(mDataRange);
+    Q_EMIT dataRangeChanged(mDataRange);
   }
 }
 
@@ -13977,7 +13977,7 @@ void QCPColorScale::setDataScaleType(QCPAxis::ScaleType scaleType)
       mColorAxis.data()->setScaleType(mDataScaleType);
     if (mDataScaleType == QCPAxis::stLogarithmic)
       setDataRange(mDataRange.sanitizedForLogScale());
-    emit dataScaleTypeChanged(mDataScaleType);
+    Q_EMIT dataScaleTypeChanged(mDataScaleType);
   }
 }
 
@@ -13995,7 +13995,7 @@ void QCPColorScale::setGradient(const QCPColorGradient &gradient)
     mGradient = gradient;
     if (mAxisRect)
       mAxisRect.data()->mGradientImageInvalidated = true;
-    emit gradientChanged(mGradient);
+    Q_EMIT gradientChanged(mGradient);
   }
 }
 
@@ -14254,7 +14254,7 @@ QCPColorScaleAxisRectPrivate::QCPColorScaleAxisRectPrivate(QCPColorScale *parent
 {
   setParentLayerable(parentColorScale);
   setMinimumMargins(QMargins(0, 0, 0, 0));
-  foreach (QCPAxis::AxisType type, QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
+  for (auto const& type : QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
   {
     axis(type)->setVisible(true);
     axis(type)->grid()->setVisible(false);
@@ -14275,7 +14275,7 @@ QCPColorScaleAxisRectPrivate::QCPColorScaleAxisRectPrivate(QCPColorScale *parent
   // make layer transfers of color scale transfer to axis rect and axes
   // the axes must be set after axis rect, such that they appear above color gradient drawn by axis rect:
   connect(parentColorScale, SIGNAL(layerChanged(QCPLayer*)), this, SLOT(setLayer(QCPLayer*)));
-  foreach (QCPAxis::AxisType type, QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
+  for (auto const& type : QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
     connect(parentColorScale, SIGNAL(layerChanged(QCPLayer*)), axis(type), SLOT(setLayer(QCPLayer*)));
 }
 
@@ -14350,7 +14350,7 @@ void QCPColorScaleAxisRectPrivate::updateGradientImage()
 void QCPColorScaleAxisRectPrivate::axisSelectionChanged(QCPAxis::SelectableParts selectedParts)
 {
   // axis bases of four axes shall always (de-)selected synchronously:
-  foreach (QCPAxis::AxisType type, QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
+  for (auto const& type : QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
   {
     if (QCPAxis *senderAxis = qobject_cast<QCPAxis*>(sender()))
       if (senderAxis->axisType() == type)
@@ -14374,7 +14374,7 @@ void QCPColorScaleAxisRectPrivate::axisSelectionChanged(QCPAxis::SelectableParts
 void QCPColorScaleAxisRectPrivate::axisSelectableChanged(QCPAxis::SelectableParts selectableParts)
 {
   // synchronize axis base selectability:
-  foreach (QCPAxis::AxisType type, QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
+  for (auto const& type : QList<QCPAxis::AxisType>() << QCPAxis::atBottom << QCPAxis::atTop << QCPAxis::atLeft << QCPAxis::atRight)
   {
     if (QCPAxis *senderAxis = qobject_cast<QCPAxis*>(sender()))
       if (senderAxis->axisType() == type)
@@ -18122,7 +18122,7 @@ QCPBars *QCPBarsGroup::bars(int index) const
 */
 void QCPBarsGroup::clear()
 {
-  foreach (QCPBars *bars, mBars) // since foreach takes a copy, removing bars in the loop is okay
+  for (auto& bars : mBars) // since foreach takes a copy, removing bars in the loop is okay
     bars->setBarsGroup(0); // removes itself via removeBars
 }
 
@@ -18224,7 +18224,7 @@ double QCPBarsGroup::keyPixelOffset(const QCPBars *bars, double keyCoord)
 {
   // find list of all base bars in case some mBars are stacked:
   QList<const QCPBars*> baseBars;
-  foreach (const QCPBars *b, mBars)
+  for (auto& b : mBars)
   {
     while (b->barBelow())
       b = b->barBelow();
@@ -20123,7 +20123,7 @@ void QCPColorMap::setDataRange(const QCPRange &dataRange)
     else
       mDataRange = dataRange.sanitizedForLinScale();
     mMapImageInvalidated = true;
-    emit dataRangeChanged(mDataRange);
+    Q_EMIT dataRangeChanged(mDataRange);
   }
 }
 
@@ -20138,7 +20138,7 @@ void QCPColorMap::setDataScaleType(QCPAxis::ScaleType scaleType)
   {
     mDataScaleType = scaleType;
     mMapImageInvalidated = true;
-    emit dataScaleTypeChanged(mDataScaleType);
+    Q_EMIT dataScaleTypeChanged(mDataScaleType);
     if (mDataScaleType == QCPAxis::stLogarithmic)
       setDataRange(mDataRange.sanitizedForLogScale());
   }
@@ -20161,7 +20161,7 @@ void QCPColorMap::setGradient(const QCPColorGradient &gradient)
   {
     mGradient = gradient;
     mMapImageInvalidated = true;
-    emit gradientChanged(mGradient);
+    Q_EMIT gradientChanged(mGradient);
   }
 }
 
