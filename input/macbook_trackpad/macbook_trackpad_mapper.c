@@ -40,43 +40,51 @@ mpr_sig velocitySig = 0;
 mpr_sig areaSig = 0;
 
 int done = 0;
+int verbose = 1;
 
 int callback(int device, Finger *data, int nFingers, double timestamp, int frame) {
-    mpr_time_t now;
-    mpr_time_now(&now);
+    mpr_time now;
+    mpr_time_set(&now, MPR_NOW);
     mpr_dev_start_queue(mdev, now);
     float pair[2];
 
-    Finger *f = &data[0];
-    printf("Frame %7d: ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-           "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-           f->frame,
-           f->identifier,
-           f->angle,
-           f->majorAxis,
-           f->minorAxis,
-           f->normalized.pos.x,
-           f->normalized.pos.y,
-           f->normalized.vel.x,
-           f->normalized.vel.y,
-           f->size);
-
-    printf("Touch count: %d\n", nFingers);
+    if (verbose)
+      printf("Touch count: %d\n", nFingers);
+    else {
+      printf("\rTouch count: %d", nFingers);
+      fflush(stdout);
+    }
     mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers, now);
 
-    for (int i = 0; i < nFingers; i++) {
+    Finger *f = &data[0];
+    if (verbose)
+      printf("Frame %7d: ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+             "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
+             f->frame,
+             f->identifier,
+             f->angle,
+             f->majorAxis,
+             f->minorAxis,
+             f->normalized.pos.x,
+             f->normalized.pos.y,
+             f->normalized.vel.x,
+             f->normalized.vel.y,
+             f->size);
+
+    for (int i = 1; i < nFingers; i++) {
         Finger *f = &data[i];
-        printf("               ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-               "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-               f->identifier,
-               f->angle,
-               f->majorAxis,
-               f->minorAxis,
-               f->normalized.pos.x,
-               f->normalized.pos.y,
-               f->normalized.vel.x,
-               f->normalized.vel.y,
-               f->size);
+        if (verbose)
+          printf("               ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+                 "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
+                 f->identifier,
+                 f->angle,
+                 f->majorAxis,
+                 f->minorAxis,
+                 f->normalized.pos.x,
+                 f->normalized.pos.y,
+                 f->normalized.vel.x,
+                 f->normalized.vel.y,
+                 f->size);
 
         if (f->size > 0) {
             // update libmpr signals
@@ -144,12 +152,16 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main() {
+int main(int argc, char **argv) {
+
+    if (argc > 1 && 0 == strcmp(argv[1], "-q"))
+      verbose = 0;
+
     signal(SIGINT, ctrlc);
 
     mdev = mpr_dev_new("touchpad", 0);
     add_signals();
-    while (!mpr_dev_ready(mdev)) {
+    while (!mpr_dev_get_is_ready(mdev)) {
         mpr_dev_poll(mdev, 0);
     }
     
