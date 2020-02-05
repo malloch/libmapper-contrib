@@ -10,11 +10,11 @@ ifeq ($(OS), Linux)
 else
   # OS X
   LEAP_LIBRARY := ./lib/libLeap.dylib
-  MPR_LIBRARY := /usr/local/lib/libmapper.dylib
+  MPR_LIBRARY := /usr/local/lib/libmpr.dylib
 endif
 
 mpr.leap_motion: mpr.leap_motion.cpp
-	$(CXX) -Wall -g -I./include mpr.leap_motion.cpp -o mpr.leap_motion $(LEAP_LIBRARY) $(MPR_LIBRARY)
+	$(CXX) -std=c++11 -Wall -g -I./include mpr.leap_motion.cpp -o mpr.leap_motion $(LEAP_LIBRARY) $(MPR_LIBRARY)
 ifeq ($(OS), Darwin)
 	install_name_tool -change @loader_path/libLeap.dylib ./lib/libLeap.dylib mpr.leap_motion
 endif
