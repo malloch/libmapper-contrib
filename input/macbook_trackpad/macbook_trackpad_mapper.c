@@ -40,6 +40,7 @@ mapper_signal velocitySig = 0;
 mapper_signal areaSig = 0;
 
 int done = 0;
+int verbose = 1;
 
 int callback(int device, Finger *data, int nFingers, double timestamp, int frame) {
     mapper_timetag_t now;
@@ -47,36 +48,43 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
     mapper_device_start_queue(mdev, now);
     float pair[2];
 
-    printf("Touch count: %d\n", nFingers);
+    if (verbose)
+      printf("Touch count: %d\n", nFingers);
+    else {
+      printf("\rTouch count: %d", nFingers);
+      fflush(stdout);
+    }
     mapper_signal_update(countSig, &nFingers, 1, now);
 
     Finger *f = &data[0];
-    printf("Frame %7d: ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-           "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-           f->frame,
-           f->identifier,
-           f->angle,
-           f->majorAxis,
-           f->minorAxis,
-           f->normalized.pos.x,
-           f->normalized.pos.y,
-           f->normalized.vel.x,
-           f->normalized.vel.y,
-           f->size);
+    if (verbose)
+      printf("Frame %7d: ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+             "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
+             f->frame,
+             f->identifier,
+             f->angle,
+             f->majorAxis,
+             f->minorAxis,
+             f->normalized.pos.x,
+             f->normalized.pos.y,
+             f->normalized.vel.x,
+             f->normalized.vel.y,
+             f->size);
 
-    for (int i = 0; i < nFingers; i++) {
+    for (int i = 1; i < nFingers; i++) {
         Finger *f = &data[i];
-        printf("               ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-               "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-               f->identifier,
-               f->angle,
-               f->majorAxis,
-               f->minorAxis,
-               f->normalized.pos.x,
-               f->normalized.pos.y,
-               f->normalized.vel.x,
-               f->normalized.vel.y,
-               f->size);
+        if (verbose)
+          printf("               ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+                 "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
+                 f->identifier,
+                 f->angle,
+                 f->majorAxis,
+                 f->minorAxis,
+                 f->normalized.pos.x,
+                 f->normalized.pos.y,
+                 f->normalized.vel.x,
+                 f->normalized.vel.y,
+                 f->size);
 
         if (f->size > 0) {
             // update libmapper signals
@@ -149,7 +157,11 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main() {
+int main(int argc, char **argv) {
+
+    if (argc > 1 && 0 == strcmp(argv[1], "-q"))
+      verbose = 0;
+
     signal(SIGINT, ctrlc);
 
     mdev = mapper_device_new("touchpad", 0, 0);
