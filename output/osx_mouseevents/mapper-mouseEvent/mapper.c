@@ -230,6 +230,6 @@ int poll_mpr_dev(mpr_dev d) {
 }
 
 void quit_mpr_dev(mpr_dev d) {
-    printf("freeing mpr dev %s\n", mpr_obj_prop_as_str(d, MPR_PROP_NAME, NULL));
+    printf("freeing mpr dev %s\n", mpr_obj_get_prop_as_str(d, MPR_PROP_NAME, NULL));
     mpr_dev_free(d);
 }

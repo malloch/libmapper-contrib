@@ -1,9 +1,10 @@
 #!/usr/bin/python
 
 import sys, math
-from PySide import QtGui, QtCore
+from PySide2 import QtGui, QtCore
+from PySide2.QtWidgets import QApplication, QMainWindow, QFrame, QSplitter
 from collections import deque
-import mapper, random
+import mpr, random
 
 display_sec = 10.0
 
@@ -29,14 +30,14 @@ def recheck_ranges(record):
     record['min'][0] = min
     record['max'][0] = max
 
-def sig_handler(sig, id, val, tt):
+def sig_handler(sig, event, id, val, tt):
     now = tt.get_double()
     then = now - display_sec
     # Find signal
     try:
-        match = signals[sig.name]
+        match = signals[sig['name']]
     except:
-        print 'signal not found'
+        print('signal not found')
         return
     match['vals'].append(val)
     if not math.isnan(val) and not math.isinf(val):
@@ -60,52 +61,53 @@ def sig_handler(sig, id, val, tt):
     if recheck:
         recheck_ranges(match)
 
-def on_map(map, action):
-    print 'on_map!'
-    if map.source().signal().device().is_local:
+def on_map(type, map, event):
+    print('on_map!')
+    src = map.signal(mpr.LOC_SRC)
+    dst = map.signal(mpr.LOC_DST)
+    if src['is_local']:
         map.release()
         return
-    elif not map.destination().signal().device().is_local:
+    elif not dst['is_local']:
         return
-    srcname = map.source().signal().device().name+'/'+map.source().signal().name
-    dstname = map.destination().signal().name
-    if action == mapper.ADDED:
-        print '  ADDED map ', srcname, '->', '<self>/'+dstname
+    srcname = src.device()['name']+'/'+src['name']
+    dstname = dst['name']
+    if event == mpr.OBJ_NEW:
+        print('  ADDED map ', srcname, '->', '<self>/'+dstname)
         if dstname == srcname:
             return
-        print '  rerouting...'
-        newsig = device.add_input_signal(srcname, 1, 'f', None, None, None,
-                                         sig_handler)
+        print('  rerouting...')
+        newsig = dev.add_signal(mpr.DIR_IN, srcname, 1, mpr.FLT, None, None,
+                                None, None, sig_handler)
         if not newsig:
-            print '  error creating signal', srcnamefull
+            print('  error creating signal', srcnamefull)
             return
         signals[srcname] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'label' : 0}
-        print '  signals:', signals
-        mapper.map(map.source().signal(), newsig).push()
+        print('  signals:', signals)
+        mpr.map(src, newsig).push()
         map.release()
-    elif action == mapper.REMOVED:
-        print '  REMOVED', srcname, '->', '<self>/'+dstname
+    elif event == mpr.OBJ_REM or event == mpr.OBJ_EXP:
+        print('  REMOVED', srcname, '->', '<self>/'+dstname)
         if dstname == 'connect_here' or dstname != srcname:
             return
         if dstname in signals:
-            print '  freeing local signal', dstname
+            print('  freeing local signal', dstname)
             sigs_to_free.append(signals[dstname]['sig'])
 #            device.remove_signal(signals[dstname]['sig'])
             del signals[dstname]
 
-device = mapper.device('signal_plotter')
-device.add_input_signal('connect_here')
-device.set_map_callback(on_map)
-database = device.database()
+dev = mpr.device('signal_plotter')
+dev.add_signal(mpr.DIR_IN, 'connect_here')
+dev.graph().add_callback(on_map, mpr.MAP)
 
 def resize(pos, index):
     global split, x_scale
     split = pos
     x_scale = split / display_sec
 
-class labels(QtGui.QFrame):
+class labels(QFrame):
     def __init__(self, parent):
-        QtGui.QFrame.__init__(self, parent)
+        QFrame.__init__(self, parent)
         self.setStyleSheet("background-color: white;");
 
     def paintEvent(self, event):
@@ -118,9 +120,9 @@ class labels(QtGui.QFrame):
             #string = i + ' ( ' + str((len(signals[i]['vals']) - 1) / display_sec) + ' Hz )'
             qp.drawText(5, signals[i]['label'], i)
 
-class plotter(QtGui.QFrame):
+class plotter(QFrame):
     def __init__(self, parent):
-        QtGui.QFrame.__init__(self, parent)
+        QFrame.__init__(self, parent)
         self.setStyleSheet("background-color: white;");
 
     def paintEvent(self, event):
@@ -129,8 +131,7 @@ class plotter(QtGui.QFrame):
         self.drawGraph(event, qp)
 
     def drawGraph(self, event, qp):
-        now = mapper.timetag()
-        then = now.get_double() - display_sec   # 10 seconds before now
+        then = mpr.timetag().get_double() - display_sec   # 10 seconds ago
         for i in signals:
             if not len (signals[i]['vals']):
                 continue
@@ -160,6 +161,7 @@ class plotter(QtGui.QFrame):
             wasNan = False
             label_y = 0
             label_y_count = 0
+            tt = tts[0]
             for j in range(len(vals)):
                 if math.isnan(vals[j]) or math.isinf(vals[j]):
                     wasNan = True
@@ -167,11 +169,13 @@ class plotter(QtGui.QFrame):
                 x = (tts[j] - then) * x_scale
                 y = vals[j] * y_scale + y_offset
                 point = QtCore.QPointF(x, y)
+                diff = tts[j] - tt
+                tt = tts[j]
                 if not started:
                     path = QtGui.QPainterPath(point)
                     started = True
                 else:
-                    if wasNan:
+                    if wasNan or diff > 1.0:
                         path.moveTo(point)
                     else:
                         path.lineTo(point)
@@ -185,12 +189,12 @@ class plotter(QtGui.QFrame):
             signals[i]['label'] += label_y * 0.01
             qp.strokePath(path, signals[i]['pen'])
 
-class gui(QtGui.QMainWindow):
+class gui(QMainWindow):
     def __init__(self):
-        QtGui.QMainWindow.__init__(self)
+        QMainWindow.__init__(self)
         self.setGeometry(300, 100, width, height)
-        self.setWindowTitle('libmapper signal plotter')
-        self.splitter = QtGui.QSplitter(QtCore.Qt.Horizontal, self)
+        self.setWindowTitle('libmpr signal plotter')
+        self.splitter = QSplitter(QtCore.Qt.Horizontal, self)
 
         self.setCentralWidget(self.splitter)
 
@@ -207,9 +211,9 @@ class gui(QtGui.QMainWindow):
 
     def timerEvent(self, event):
         global cleared
-        device.poll(10)
+        dev.poll(10)
         while len(sigs_to_free):
-            device.remove_signal(sigs_to_free.pop())
+            dev.remove_signal(sigs_to_free.pop())
         if len(signals):
             self.graph.update(0, 0, split, height)
             self.labels.update(0, 0, width-split, height)
@@ -226,7 +230,15 @@ class gui(QtGui.QMainWindow):
         height = size.height()
         split = self.splitter.sizes()[0]
 
-app = QtGui.QApplication(sys.argv)
+def remove_dev():
+    print('called remove_dev')
+    global dev
+    del dev
+
+import atexit
+atexit.register(remove_dev)
+
+app = QApplication(sys.argv)
 gui = gui()
 gui.show()
 sys.exit(app.exec_())

@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-import Tkinter, sys, math, mapper
+import sys, math, mpr
+try:
+    import Tkinter as tkinter
+except:
+    import tkinter
 
 N = int(sys.argv[1])
 values = [0.5]*N
@@ -9,15 +13,14 @@ def on_sig(n,v):
     values[n] = v
     redraw()
 
-dev = mapper.device("octovisualiser")
-sigs = [dev.add_input_signal("arm.%d"%n, 1, 'f',
-                             None, 0.0, 1.0,
-                             (lambda n: lambda s,i,f,t: on_sig(n,f))(n))
+dev = mpr.device("octovisualiser")
+sigs = [dev.add_signal(mpr.DIR_IN, "arm.%d"%n, 1, mpr.FLT, None, 0.0, 1.0, None,
+                       (lambda n: lambda s,i,f,t: on_sig(n,f))(n), mpr.SIG_UPDATE)
         for n in range(N)]
 
-root = Tkinter.Tk()
+root = tkinter.Tk()
 
-canvas = Tkinter.Canvas(root, width=400, height=400)
+canvas = tkinter.Canvas(root, width=400, height=400)
 canvas.pack()
 
 def redraw():
