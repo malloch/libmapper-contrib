@@ -1,159 +1,40 @@
-/******************************************************************************************
-* MIT License
-*
-* Copyright (c) 2013-2017 Sensel, Inc.
-*
-* Permission is hereby granted, free of charge, to any person obtaining a copy
-* of this software and associated documentation files (the "Software"), to deal
-* in the Software without restriction, including without limitation the rights
-* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
-* furnished to do so, subject to the following conditions:
-*
-* The above copyright notice and this permission notice shall be included in all
-* copies or substantial portions of the Software.
-*
-* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-* SOFTWARE.
-******************************************************************************************/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef WIN32
-    #include <windows.h>
-#else
-    #include <pthread.h>
-#endif
+#include <signal.h>
+#include <unistd.h>
 #include "sensel.h"
 #include "sensel_device.h"
 #include "mpr/mpr.h"
 
-static bool enter_pressed = false;
+SENSEL_HANDLE handle = NULL;
+SenselDeviceList list;
+SenselSensorInfo sensor_info;
+SenselFrameData *frame = NULL;
+unsigned int last_n_contacts = 0;
+int done = 0;
 
-#ifdef WIN32
-DWORD WINAPI waitForEnter()
-#else
-void * waitForEnter()
-#endif
+mpr_dev dev;
+mpr_sig num_contacts;
+mpr_sig acceleration;
+mpr_sig position;
+mpr_sig area;
+mpr_sig force;
+mpr_sig orientation;
+mpr_sig axes;
+mpr_sig velocity;
+mpr_time time;
+
+void loop()
 {
-    getchar();
-    enter_pressed = true;
-    return 0;
-}
+    unsigned int n_frames = 0;
 
-int main(int argc, char **argv)
-{
-	//Handle that references a Sensel device
-	SENSEL_HANDLE handle = NULL;
-	//List of all available Sensel devices
-	SenselDeviceList list;
-	//Sensor info from the Sensel device
-	SenselSensorInfo sensor_info;
-	//SenselFrame data that will hold the forces
-    SenselFrameData *frame = NULL;
+    while (!done) {
+        senselReadSensor(handle);
+        senselGetNumAvailableFrames(handle, &n_frames);
 
-    unsigned int last_n_contacts = 0;
-
-	//Get a list of available Sensel devices
-	senselGetDeviceList(&list);
-	if (list.num_devices == 0)
-	{
-		fprintf(stdout, "No device found\n");
-		fprintf(stdout, "Press Enter to exit example\n");
-		getchar();
-		return 0;
-	}
-
-    // create libmapper device
-    mpr_dev dev = mpr_dev_new("morph", NULL);
-    while (!mpr_dev_get_is_ready(dev)) {
-        mpr_dev_poll(dev, 25);
-    }
-
-	//Open a Sensel device by the id in the SenselDeviceList, handle initialized 
-	senselOpenDeviceByID(&handle, list.devices[0].idx);
-	//Get the sensor info
-	senselGetSensorInfo(handle, &sensor_info);
-	
-	//Set the frame content to scan force data
-	senselSetFrameContent(handle, FRAME_CONTENT_CONTACTS_MASK | FRAME_CONTENT_ACCEL_MASK);
-	//Allocate a frame of data, must be done before reading frame data
-	senselAllocateFrameData(handle, &frame);
-	//Start scanning the Sensel device
-	senselStartScanning(handle);
-
-    // force the serial connection to remain open
-    // https://forum.sensel.com/t/pausing-e-g-in-a-debugger-causes-all-subsequent-apis-to-fail/219/15
-    unsigned char val[1] = { 255 };
-    senselWriteReg(handle, 0xD0, 1, val);
-    
-    fprintf(stdout, "Press Enter to exit example\n");
-    #ifdef WIN32
-        HANDLE thread = CreateThread(NULL, 0, waitForEnter, NULL, 0, NULL);
-    #else
-        pthread_t thread;
-        pthread_create(&thread, NULL, waitForEnter, NULL);
-    #endif
-    
-    // add signals
-//    int mini = 0, maxi = 8192;
-//    mpr_sig raw_force = mpr_sig_new(dev, MPR_DIR_OUT, "raw/force", 19425,
-//                                    MPR_INT32, "grams", NULL, NULL, NULL, NULL,
-//                                    0);
-    int mini[2] = {0, 0}, maxi[2] = {16, 16};
-    mpr_sig num_contacts = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/num_contacts",
-                                       1, MPR_INT32, NULL, mini, maxi, NULL, NULL, 0);
-    
-    // TODO check these ranges!
-    float minf = 0.f, maxf = 1.0f;
-    mpr_sig acceleration = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/acceleration",
-                                       3, MPR_INT32, "G", &minf, &maxf, NULL, NULL, 0);
-
-    int num_inst = 16;
-    maxi[0] = 240;
-    maxi[1] = 139;
-    mpr_sig position = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/position",
-                                   2, MPR_FLT, "mm", mini, maxi, &num_inst,
-                                   NULL, 0);
-    maxi[0] = 33360;
-    mpr_sig area = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/area",
-                               1, MPR_FLT, "mm^2", mini, maxi, &num_inst,
-                               NULL, 0);
-    maxi[0] = 8192;
-    mpr_sig force = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/force",
-                                1, MPR_FLT, NULL, mini, maxi, &num_inst,
-                                NULL, 0);
-    maxi[0] = 360;
-    mpr_sig orientation = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/orientation",
-                                      1, MPR_FLT, "degrees", mini, maxi, &num_inst,
-                                      NULL, 0);
-    maxi[0] = 240;
-    maxi[1] = 139;
-    mpr_sig axes = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/axes",
-                               2, MPR_FLT, "mm", mini, maxi, &num_inst,
-                               NULL, 0);
-    
-    mpr_sig velocity = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/velocity",
-                                   2, MPR_FLT, "mm/sec", NULL, NULL, &num_inst,
-                                   NULL, 0);
-
-    mpr_time time;
-    
-    while (!enter_pressed) {
-		unsigned int num_frames = 0;
-		//Read all available data from the Sensel device
-		senselReadSensor(handle);
-		//Get number of frames available in the data read from the sensor
-		senselGetNumAvailableFrames(handle, &num_frames);
-		for (int f = 0; f < num_frames; f++) {
-			//Read one frame of data
-			senselGetFrame(handle, frame);
+        for (int f = 0; f < n_frames; f++) {
+            senselGetFrame(handle, frame);
 
             mpr_time_set(&time, MPR_NOW);
             mpr_dev_start_queue(dev, time);
@@ -165,7 +46,7 @@ int main(int argc, char **argv)
 
             mpr_sig_set_value(num_contacts, 0, 1, MPR_INT32, &frame->n_contacts, time);
             mpr_sig_set_value(acceleration, 0, 3, MPR_INT32, &frame->accel_data, time);
-            
+
             for (int c = 0; c < frame->n_contacts; c++) {
                 SenselContact sc = frame->contacts[c];
                 unsigned int state = sc.state;
@@ -193,14 +74,90 @@ int main(int argc, char **argv)
             }
             mpr_dev_send_queue(dev, time);
             last_n_contacts = frame->n_contacts;
-		}
+        }
         mpr_dev_poll(dev, 0);
-	}
+    }
+}
+
+void ctrlc(int sig)
+{
+    done = 1;
+}
+
+int main(int argc, char **argv)
+{
+    signal(SIGINT, ctrlc);
+
+    // connect to Sensel Morph
+    printf("Looking for Sensel Morph device... ");
+    while (!done) {
+        senselGetDeviceList(&list);
+        if (list.num_devices) {
+            break;
+        }
+        sleep(1);
+    }
+    printf(" found!\n");
+
+    // create libmapper device
+    printf("Joining mapping graph... ");
+    dev = mpr_dev_new("morph", NULL);
+    while (!done && !mpr_dev_get_is_ready(dev)) {
+        mpr_dev_poll(dev, 100);
+    }
+    printf(" registered!\n");
+
+    // open connection to Sensel Morph
+    senselOpenDeviceByID(&handle, list.devices[0].idx);
+    // setup for contact and accelerometer data
+    senselSetFrameContent(handle, FRAME_CONTENT_CONTACTS_MASK | FRAME_CONTENT_ACCEL_MASK);
+    // pre-allocate a frame of data
+    senselAllocateFrameData(handle, &frame);
+    // start scanning
+    senselStartScanning(handle);
+
+    // force the serial connection to remain open
+    // https://forum.sensel.com/t/pausing-e-g-in-a-debugger-causes-all-subsequent-apis-to-fail/219/15
+    unsigned char val[1] = { 255 };
+    senselWriteReg(handle, 0xD0, 1, val);
+
+    // add signals
+    int mini[2] = {0, 0}, maxi[2] = {16, 16};
+    num_contacts = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/num_contacts",
+                               1, MPR_INT32, NULL, mini, maxi, NULL, NULL, 0);
+    // TODO check these ranges!
+    float minf = 0.f, maxf = 1.0f;
+    acceleration = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/acceleration",
+                               3, MPR_INT32, "G", &minf, &maxf, NULL, NULL, 0);
+    int num_inst = 16;
+    maxi[0] = 240;
+    maxi[1] = 139;
+    position = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/position",
+                           2, MPR_FLT, "mm", mini, maxi, &num_inst, NULL, 0);
+    maxi[0] = 33360;
+    area = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/area", 1, MPR_FLT,
+                       "mm^2", mini, maxi, &num_inst, NULL, 0);
+    maxi[0] = 8192;
+    force = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/force", 1,
+                        MPR_FLT, NULL, mini, maxi, &num_inst, NULL, 0);
+    maxi[0] = 360;
+    orientation = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/orientation",
+                              1, MPR_FLT, "degrees", mini, maxi, &num_inst, NULL, 0);
+    maxi[0] = 240;
+    maxi[1] = 139;
+    axes = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/axes", 2, MPR_FLT,
+                       "mm", mini, maxi, &num_inst, NULL, 0);
+    velocity = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/velocity", 2,
+                           MPR_FLT, "mm/sec", NULL, NULL, &num_inst, NULL, 0);
+
+    loop();
 
     // allow serial connection to close
     val[0] = 0;
     senselWriteReg(handle, 0xD0, 1, val);
+    senselClose(handle);
 
+    // unregister from mapping graph
     mpr_dev_free(dev);
-	return 0;
+    return 0;
 }
