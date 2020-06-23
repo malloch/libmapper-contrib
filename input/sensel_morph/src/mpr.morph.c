@@ -126,27 +126,27 @@ int main(int argc, char **argv)
     num_contacts = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/num_contacts",
                                1, MPR_INT32, NULL, mini, maxi, NULL, NULL, 0);
     // TODO check these ranges!
-    float minf = 0.f, maxf = 1.0f;
+    float minf[2] = {0.f, 0.f}, maxf[2] = {1.0f, 1.0f};
     acceleration = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/acceleration",
-                               3, MPR_INT32, "G", &minf, &maxf, NULL, NULL, 0);
+                               3, MPR_INT32, "G", minf, maxf, NULL, NULL, 0);
     int num_inst = 16;
-    maxi[0] = 240;
-    maxi[1] = 139;
+    maxf[0] = 240;
+    maxf[1] = 139;
     position = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/position",
-                           2, MPR_FLT, "mm", mini, maxi, &num_inst, NULL, 0);
-    maxi[0] = 33360;
+                           2, MPR_FLT, "mm", minf, maxf, &num_inst, NULL, 0);
+    maxf[0] = 33360;
     area = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/area", 1, MPR_FLT,
-                       "mm^2", mini, maxi, &num_inst, NULL, 0);
-    maxi[0] = 8192;
+                       "mm^2", minf, maxf, &num_inst, NULL, 0);
+    maxf[0] = 8192;
     force = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/force", 1,
-                        MPR_FLT, NULL, mini, maxi, &num_inst, NULL, 0);
-    maxi[0] = 360;
+                        MPR_FLT, NULL, minf, maxf, &num_inst, NULL, 0);
+    maxf[0] = 360;
     orientation = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/orientation",
-                              1, MPR_FLT, "degrees", mini, maxi, &num_inst, NULL, 0);
-    maxi[0] = 240;
-    maxi[1] = 139;
+                              1, MPR_FLT, "degrees", minf, maxf, &num_inst, NULL, 0);
+    maxf[0] = 240;
+    maxf[1] = 139;
     axes = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/axes", 2, MPR_FLT,
-                       "mm", mini, maxi, &num_inst, NULL, 0);
+                       "mm", minf, maxf, &num_inst, NULL, 0);
     velocity = mpr_sig_new(dev, MPR_DIR_OUT, "instrument/contact/velocity", 2,
                            MPR_FLT, "mm/sec", NULL, NULL, &num_inst, NULL, 0);
 

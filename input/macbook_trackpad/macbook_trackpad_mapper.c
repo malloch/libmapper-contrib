@@ -57,24 +57,10 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
     mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers, now);
 
     Finger *f = &data[0];
-    if (verbose)
-      printf("Frame %7d: ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-             "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-             f->frame,
-             f->identifier,
-             f->angle,
-             f->majorAxis,
-             f->minorAxis,
-             f->normalized.pos.x,
-             f->normalized.pos.y,
-             f->normalized.vel.x,
-             f->normalized.vel.y,
-             f->size);
-
-    for (int i = 1; i < nFingers; i++) {
+    for (int i = 0; i < nFingers; i++) {
         Finger *f = &data[i];
         if (verbose)
-          printf("               ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+          printf("  ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
                  "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
                  f->identifier,
                  f->angle,
