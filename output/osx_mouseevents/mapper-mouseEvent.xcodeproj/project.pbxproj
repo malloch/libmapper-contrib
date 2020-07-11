@@ -268,7 +268,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				OTHER_LDFLAGS = /usr/local/lib/libmpr.dylib;
+				OTHER_LDFLAGS = /usr/local/lib/libmapper.dylib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "mapper-mouseEvent/mapper-mouseEvent-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -286,7 +286,7 @@
 					"@executable_path/../Frameworks",
 					"@loader_path/../Frameworks",
 				);
-				OTHER_LDFLAGS = /usr/local/lib/libmpr.dylib;
+				OTHER_LDFLAGS = /usr/local/lib/libmapper.dylib;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "mapper-mouseEvent/mapper-mouseEvent-Bridging-Header.h";
 				SWIFT_VERSION = 4.2;

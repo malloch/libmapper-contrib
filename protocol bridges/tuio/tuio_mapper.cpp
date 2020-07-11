@@ -3,30 +3,28 @@
 #include <cstdlib>
 #include <math.h>
 #include <lo/lo.h>
-#include <mpr/mpr_cpp.h>
+#include <mapper/mapper_cpp.h>
 
 #define MAX_TOUCH 10
 #define MAX_OBJECT 10
 #define TWOPI (M_PI * 2)
 
 lo_server server;
-mpr::Device dev("tuio");
+mapper::Device dev("tuio");
 
 // touch signals
-mpr::Signal touchCount = 0;
-mpr::Signal touchPosition = 0;
-mpr::Signal touchAggregateCentroid = 0;
-mpr::Signal touchAggregateTranslation = 0;
-mpr::Signal touchAggregateGrowth = 0;
-mpr::Signal touchAggregateRotation = 0;
+mapper::Signal touchCount = 0;
+mapper::Signal touchPosition = 0;
+mapper::Signal touchAggregateCentroid = 0;
+mapper::Signal touchAggregateTranslation = 0;
+mapper::Signal touchAggregateGrowth = 0;
+mapper::Signal touchAggregateRotation = 0;
 
 // object signals
-mpr::Signal objectCount = 0;
-mpr::Signal objectType = 0;
-mpr::Signal objectPosition = 0;
-mpr::Signal objectAngle = 0;
-
-mpr::Time queue;
+mapper::Signal objectCount = 0;
+mapper::Signal objectType = 0;
+mapper::Signal objectPosition = 0;
+mapper::Signal objectAngle = 0;
 
 int done = 0;
 
@@ -125,8 +123,6 @@ void errorHandler(int num, const char *msg, const char *where)
 
 int bundleStartHandler(lo_timetag tt, void *user_data)
 {
-    queue.now();
-    dev.start_queue(queue);
     return 0;
 }
 
@@ -152,17 +148,17 @@ int bundleEndHandler(void *user_data)
     }
     if (count > 0) {
         meanPosition /= count;
-        touchAggregateCentroid.set_value(meanPosition.coord, queue);
+        touchAggregateCentroid.set_value(meanPosition.coord, 2);
 
         // calculate aggregate translation
         deltaPosition /= count;
-        touchAggregateTranslation.set_value(deltaPosition.coord, queue);
+        touchAggregateTranslation.set_value(deltaPosition.coord, 2);
 
         // find bounding box dimensions and calculate growth
 //        float dw = currentBox.width() - lastBox.width();
 //        float dh = currentBox.height() - lastBox.height();
         float growth = currentBox.diagonal() - lastBox.diagonal();
-        touchAggregateGrowth.set_value(growth, queue);
+        touchAggregateGrowth.set_value(growth);
 
         // find aggregate rotation
         float aggrot = 0;
@@ -179,7 +175,7 @@ int bundleEndHandler(void *user_data)
             aggrot += diff;
         }
         aggrot /= count;
-        touchAggregateRotation.set_value(aggrot, queue);
+        touchAggregateRotation.set_value(aggrot);
 
         // clear screen & cursor to home
         printf("\e[2J\e[0;0H");
@@ -213,7 +209,7 @@ int bundleEndHandler(void *user_data)
                currentBox.height(), growth, aggrot);
     }
 
-    dev.send_queue(queue);
+    dev.update_done();
     return 0;
 }
 
@@ -226,7 +222,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
     int i, j, found;
     const char *msgType = &argv[0]->s;
     if (msgType[0] == 'a') {
-        touchCount.set_value(argc-1, queue);
+        touchCount.set_value(argc-1);
         // "alive" message: check to see if any of our touches have disappeared
         for (i = 0; i < MAX_TOUCH; i++) {
             if (touches[i].sessionId == -1)
@@ -240,7 +236,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing touch %d\n", touches[i].sessionId);
-                touchPosition.instance(i).release(queue);
+                touchPosition.instance(i).release();
                 touches[i].sessionId = -1;
             }
         }
@@ -268,8 +264,7 @@ int touchHandler(const char *path, const char *types, lo_arg ** argv,
             printf("no indexes available for touch %d\n", sessionId);
             return 0;
         }
-        touchPosition.instance(i).set_value(touches[i].currentPosition.coord,
-                                            queue);
+        touchPosition.instance(i).set_value(touches[i].currentPosition.coord, 2);
     }
     return 0;
 }
@@ -296,7 +291,7 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
             }
             if (!found) {
                 printf("removing object %d.%d", objects[i].objectId, i);
-                objectPosition.instance(i).release(queue);
+                objectPosition.instance(i).release();
                 objects[i].sessionId = -1;
                 objects[i].objectId = -1;
             }
@@ -327,13 +322,12 @@ int objectHandler(const char *path, const char *types, lo_arg ** argv,
         }
 
         objects[i].objectId = argv[2]->i;
-        objectType.instance(i).set_value(objects[i].objectId, queue);
+        objectType.instance(i).set_value(objects[i].objectId);
 
         objects[i].angle = argv[5]->f;
-        objectAngle.instance(i).set_value(objects[i].angle, queue);
+        objectAngle.instance(i).set_value(objects[i].angle);
 
-        objectPosition.instance(i).set_value(objects[i].currentPosition.coord,
-                                             queue);
+        objectPosition.instance(i).set_value(objects[i].currentPosition.coord, 2);
     }
     return 0;
 }

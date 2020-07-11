@@ -3,8 +3,9 @@
 
 #include <math.h>
 #include <unistd.h>
+#include <sys/time.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <mpr/mpr.h>
+#include <mapper/mapper.h>
 
 #define NUMTOUCHES 10
 
@@ -41,11 +42,11 @@ mpr_sig areaSig = 0;
 
 int done = 0;
 int verbose = 1;
+int polling = 0;
+int unpolled = 0;
 
 int callback(int device, Finger *data, int nFingers, double timestamp, int frame) {
-    mpr_time now;
-    mpr_time_set(&now, MPR_NOW);
-    mpr_dev_start_queue(mdev, now);
+    unpolled = 0;
     float pair[2];
 
     if (verbose)
@@ -54,7 +55,9 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
       printf("\rTouch count: %d", nFingers);
       fflush(stdout);
     }
-    mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers, now);
+
+    if (!polling)
+        mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers);
 
     Finger *f = &data[0];
     for (int i = 0; i < nFingers; i++) {
@@ -71,39 +74,35 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
                  f->normalized.vel.x,
                  f->normalized.vel.y,
                  f->size);
-
+        if (polling)
+            continue;
         if (f->size > 0) {
-            // update libmpr signals
-            mpr_dev_start_queue(mdev, now);
-
-            mpr_sig_set_value(angleSig, f->identifier, 1, MPR_FLT, &f->angle, now);
+            // update libmapper signals
+            mpr_sig_set_value(angleSig, f->identifier, 1, MPR_FLT, &f->angle);
 
             pair[0] = f->majorAxis;
             pair[1] = f->minorAxis;
-            mpr_sig_set_value(ellipseSig, f->identifier, 2, MPR_FLT, pair, now);
+            mpr_sig_set_value(ellipseSig, f->identifier, 2, MPR_FLT, pair);
 
             pair[0] = f->normalized.pos.x;
             pair[1] = f->normalized.pos.y;
-            mpr_sig_set_value(positionSig, f->identifier, 2, MPR_FLT, pair, now);
+            mpr_sig_set_value(positionSig, f->identifier, 2, MPR_FLT, pair);
 
             pair[0] = f->normalized.vel.x;
             pair[1] = f->normalized.vel.y;
-            mpr_sig_set_value(velocitySig, f->identifier, 2, MPR_FLT, pair, now);
+            mpr_sig_set_value(velocitySig, f->identifier, 2, MPR_FLT, pair);
 
-            mpr_sig_set_value(areaSig, f->identifier, 1, MPR_FLT, &f->size, now);
-
-            mpr_dev_send_queue(mdev, now);
+            mpr_sig_set_value(areaSig, f->identifier, 1, MPR_FLT, &f->size);
         }
         else {
-            mpr_sig_release_inst(angleSig, f->identifier, now);
-            mpr_sig_release_inst(ellipseSig, f->identifier, now);
-            mpr_sig_release_inst(positionSig, f->identifier, now);
-            mpr_sig_release_inst(velocitySig, f->identifier, now);
-            mpr_sig_release_inst(areaSig, f->identifier, now);
+            mpr_sig_release_inst(angleSig, f->identifier);
+            mpr_sig_release_inst(ellipseSig, f->identifier);
+            mpr_sig_release_inst(positionSig, f->identifier);
+            mpr_sig_release_inst(velocitySig, f->identifier);
+            mpr_sig_release_inst(areaSig, f->identifier);
         }
     }
-
-    mpr_dev_send_queue(mdev, now);
+    mpr_dev_update_done(mdev);
     return 0;
 }
 
@@ -150,17 +149,24 @@ int main(int argc, char **argv) {
     while (!mpr_dev_get_is_ready(mdev)) {
         mpr_dev_poll(mdev, 0);
     }
-    
+
     MTDeviceRef dev = MTDeviceCreateDefault();
     MTRegisterContactFrameCallback(dev, callback);
     MTDeviceStart(dev, 0);
     printf("Ctrl-C to abort\n");
 
     while (!done) {
-        mpr_dev_poll(mdev, 10);
+        usleep(10000);
+
+        if (++unpolled > 10) {
+            polling = 1;
+            mpr_dev_poll(mdev, 0);
+            polling = 0;
+            unpolled = 0;
+        }
     }
 
-    printf("freeing libmpr device... ");
+    printf("freeing mapper device... ");
     mpr_dev_free(mdev);
     printf("done.\n");
     return 0;

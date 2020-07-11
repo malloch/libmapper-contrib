@@ -9,7 +9,7 @@
 #include <iostream>
 #include <cstring>
 #include "Leap.h"
-#include "mpr/mpr_cpp.h"
+#include "mapper/mapper_cpp.h"
 
 #define NUM 4
 #define MM "mm"
@@ -33,7 +33,7 @@ const char* bNames[] = {"metacarpal/", "proximal/", "intermediate/", "distal/"};
 
 class MprBone {
 public:
-    MprBone(mpr::Device &dev, int fIndex, int bIndex) {
+    MprBone(mapper::Device &dev, int fIndex, int bIndex) {
         // init signals
         const char* fName = fNames[fIndex];
         const char* bName = bNames[bIndex];
@@ -48,26 +48,26 @@ public:
         directionSig = dev.add_sig(OUT, str_buffer, 3, MPR_FLT, RAD,
                                    &minDir3, &maxDir3, &numInst);
     }
-    void update(const Bone& bone, int id, mpr::Time& time) {
-        startSig.instance(id).set_value(bone.prevJoint(), time);
-        endSig.instance(id).set_value(bone.nextJoint(), time);
-        directionSig.instance(id).set_value(bone.direction(), time);
+    void update(const Bone& bone, int id) {
+        startSig.instance(id).set_value(bone.prevJoint().toFloatPointer(), 3);
+        endSig.instance(id).set_value(bone.nextJoint().toFloatPointer(), 3);
+        directionSig.instance(id).set_value(bone.direction().toFloatPointer(), 3);
     }
-    void release(int id, mpr::Time& time) {
-        startSig.instance(id).release(time);
-        endSig.instance(id).release(time);
-        directionSig.instance(id).release(time);
+    void release(int id) {
+        startSig.instance(id).release();
+        endSig.instance(id).release();
+        directionSig.instance(id).release();
     }
 
 private:
-    mpr::Signal startSig;
-    mpr::Signal endSig;
-    mpr::Signal directionSig;
+    mapper::Signal startSig;
+    mapper::Signal endSig;
+    mapper::Signal directionSig;
 };
 
 class MprFinger {
 public:
-    MprFinger(mpr::Device &dev, int fingerIndex = 5)
+    MprFinger(mapper::Device &dev, int fingerIndex = 5)
     : metacarpalBone(dev, fingerIndex, 0)
     , proximalBone(dev, fingerIndex, 1)
     , intermediateBone(dev, fingerIndex, 2)
@@ -75,37 +75,37 @@ public:
     {}
     ~MprFinger() {}
 
-    void update(const Finger& finger, int id, mpr::Time& time) {
-        lengthSig.instance(id).set_value(finger.length(), time);
-        widthSig.instance(id).set_value(finger.width(), time);
+    void update(const Finger& finger, int id) {
+        lengthSig.instance(id).set_value(finger.length());
+        widthSig.instance(id).set_value(finger.width());
 
         for (int i = 0; i < 4; ++i) {
             Bone::Type boneType = static_cast<Bone::Type>(i);
             Bone b = finger.bone(boneType);
             switch (i) {
-                case 0: metacarpalBone.update(b, id, time);      break;
-                case 1: proximalBone.update(b, id, time);        break;
-                case 2: intermediateBone.update(b, id, time);    break;
-                case 3: distalBone.update(b, id, time);          break;
+                case 0: metacarpalBone.update(b, id);      break;
+                case 1: proximalBone.update(b, id);        break;
+                case 2: intermediateBone.update(b, id);    break;
+                case 3: distalBone.update(b, id);          break;
             }
         }
     }
-    void update(const Finger& finger, mpr::Time& time) {
-        update(finger, finger.id(), time);
+    void update(const Finger& finger) {
+        update(finger, finger.id());
     }
-    void release(int id, mpr::Time& time) {
-        lengthSig.instance(id).release(time);
-        widthSig.instance(id).release(time);
+    void release(int id) {
+        lengthSig.instance(id).release();
+        widthSig.instance(id).release();
 
-        metacarpalBone.release(id, time);
-        proximalBone.release(id, time);
-        intermediateBone.release(id, time);
-        distalBone.release(id, time);
+        metacarpalBone.release(id);
+        proximalBone.release(id);
+        intermediateBone.release(id);
+        distalBone.release(id);
     }
 
 private:
-    mpr::Signal lengthSig;
-    mpr::Signal widthSig;
+    mapper::Signal lengthSig;
+    mapper::Signal widthSig;
 
     MprBone metacarpalBone;
     MprBone proximalBone;
@@ -115,7 +115,7 @@ private:
 
 class MprHand {
 public:
-    MprHand(mpr::Device &dev)
+    MprHand(mapper::Device &dev)
     : anonymousFinger(dev)
     , thumbFinger(dev, 0)
     , indexFinger(dev, 1)
@@ -163,34 +163,35 @@ public:
     }
     ~MprHand() {}
 
-    void update(const Frame& frame, const Hand &hand, mpr::Time& time) {
+    void update(const Frame& frame, const Hand &hand) {
         int id = hand.id();
         // left or right hand?
-        isLeftSig.instance(id).set_value(hand.isLeft(), time);
-        isRightSig.instance(id).set_value(hand.isRight(), time);
-
-        palmPositionSig.instance(id).set_value(hand.palmPosition(), time);
+        int side = hand.isLeft();
+        isLeftSig.instance(id).set_value(side);
+        side = hand.isRight();
+        isRightSig.instance(id).set_value(side);
+        palmPositionSig.instance(id).set_value(hand.palmPosition().toFloatPointer(), 3);
         return;
 
-        palmPositionStableSig.instance(id).set_value(hand.stabilizedPalmPosition(), time);
-        palmNormalSig.instance(id).set_value(hand.palmNormal(), time);
-        palmWidthSig.instance(id).set_value(hand.palmWidth(), time);
+        palmPositionStableSig.instance(id).set_value(hand.stabilizedPalmPosition().toFloatPointer(), 3);
+        palmNormalSig.instance(id).set_value(hand.palmNormal().toFloatPointer(), 3);
+        palmWidthSig.instance(id).set_value(hand.palmWidth());
 
-        handDirectionSig.instance(id).set_value(hand.direction(), time);
+        handDirectionSig.instance(id).set_value(hand.direction().toFloatPointer(), 3);
 
-        sphereCenterSig.instance(id).set_value(hand.sphereCenter(), time);
-        sphereRadiusSig.instance(id).set_value(hand.sphereRadius(), time);
-        pinchStrengthSig.instance(id).set_value(hand.pinchStrength(), time);
-        grabStrengthSig.instance(id).set_value(hand.grabStrength(), time);
+        sphereCenterSig.instance(id).set_value(hand.sphereCenter().toFloatPointer(), 3);
+        sphereRadiusSig.instance(id).set_value(hand.sphereRadius());
+        pinchStrengthSig.instance(id).set_value(hand.pinchStrength());
+        grabStrengthSig.instance(id).set_value(hand.grabStrength());
 
-        timeVisibleSig.instance(id).set_value(hand.timeVisible(), time);
+        timeVisibleSig.instance(id).set_value(hand.timeVisible());
 
-        confidenceSig.instance(id).set_value(hand.confidence(), time);
+        confidenceSig.instance(id).set_value(hand.confidence());
 
         Arm arm = hand.arm();
-        armDirectionSig.instance(id).set_value(arm.direction(), time);
-        wristPositionSig.instance(id).set_value(arm.wristPosition(), time);
-        elbowPositionSig.instance(id).set_value(arm.elbowPosition(), time);
+        armDirectionSig.instance(id).set_value(arm.direction().toFloatPointer(), 3);
+        wristPositionSig.instance(id).set_value(arm.wristPosition().toFloatPointer(), 3);
+        elbowPositionSig.instance(id).set_value(arm.elbowPosition().toFloatPointer(), 3);
 
         Finger finger;
         // first check if fingers from last fingerlist are still valid
@@ -198,74 +199,75 @@ public:
             int id2 = (*i).id();
             finger = frame.finger(id2);
             if (!finger.isValid())
-                anonymousFinger.release(id2, time);
+                anonymousFinger.release(id2);
         }
 
         const FingerList fl = hand.fingers();
-        thumbFinger.update(fl[0], id, time);
-        indexFinger.update(fl[1], id, time);
-        middleFinger.update(fl[2], id, time);
-        ringFinger.update(fl[3], id, time);
-        pinkyFinger.update(fl[4], id, time);
+        thumbFinger.update(fl[0], id);
+        indexFinger.update(fl[1], id);
+        middleFinger.update(fl[2], id);
+        ringFinger.update(fl[3], id);
+        pinkyFinger.update(fl[4], id);
+
         for (FingerList::const_iterator i = fl.begin(); i != fl.end(); ++i) {
-            anonymousFinger.update(*i, time);
+            anonymousFinger.update(*i);
         }
     }
-    void release(int id, mpr::Time& time) {
-        isLeftSig.instance(id).release(time);
-        isRightSig.instance(id).release(time);
+    void release(int id) {
+        isLeftSig.instance(id).release();
+        isRightSig.instance(id).release();
 
-        palmPositionSig.instance(id).release(time);
-        palmPositionStableSig.instance(id).release(time);
-        palmNormalSig.instance(id).release(time);
-        palmWidthSig.instance(id).release(time);
+        palmPositionSig.instance(id).release();
+        palmPositionStableSig.instance(id).release();
+        palmNormalSig.instance(id).release();
+        palmWidthSig.instance(id).release();
 
-        handDirectionSig.instance(id).release(time);
+        handDirectionSig.instance(id).release();
 
-        sphereCenterSig.instance(id).release(time);
-        sphereRadiusSig.instance(id).release(time);
-        pinchStrengthSig.instance(id).release(time);
-        grabStrengthSig.instance(id).release(time);
+        sphereCenterSig.instance(id).release();
+        sphereRadiusSig.instance(id).release();
+        pinchStrengthSig.instance(id).release();
+        grabStrengthSig.instance(id).release();
 
-        timeVisibleSig.instance(id).release(time);
+        timeVisibleSig.instance(id).release();
 
-        confidenceSig.instance(id).release(time);
+        confidenceSig.instance(id).release();
 
-        armDirectionSig.instance(id).release(time);
-        wristPositionSig.instance(id).release(time);
-        elbowPositionSig.instance(id).release(time);
+        armDirectionSig.instance(id).release();
+        wristPositionSig.instance(id).release();
+        elbowPositionSig.instance(id).release();
 
-        thumbFinger.release(id, time);
-        indexFinger.release(id, time);
-        middleFinger.release(id, time);
-        ringFinger.release(id, time);
-        pinkyFinger.release(id, time);
+        thumbFinger.release(id);
+        indexFinger.release(id);
+        middleFinger.release(id);
+        ringFinger.release(id);
+        pinkyFinger.release(id);
     }
 
 private:
     FingerList fl;
 
-    mpr::Signal isLeftSig;
-    mpr::Signal isRightSig;
+    mapper::Signal isLeftSig;
+    mapper::Signal isRightSig;
 
-    mpr::Signal palmPositionSig;
-    mpr::Signal palmPositionStableSig;
-    mpr::Signal palmNormalSig;
-    mpr::Signal palmWidthSig;
+    mapper::Signal palmPositionSig;
+    mapper::Signal palmPositionStableSig;
+    mapper::Signal palmNormalSig;
+    mapper::Signal palmWidthSig;
 
-    mpr::Signal handDirectionSig;
+    mapper::Signal handDirectionSig;
 
-    mpr::Signal sphereCenterSig;
-    mpr::Signal sphereRadiusSig;
-    mpr::Signal pinchStrengthSig;
-    mpr::Signal grabStrengthSig;
+    mapper::Signal sphereCenterSig;
+    mapper::Signal sphereRadiusSig;
+    mapper::Signal pinchStrengthSig;
+    mapper::Signal grabStrengthSig;
 
-    mpr::Signal timeVisibleSig;
-    mpr::Signal confidenceSig;
+    mapper::Signal timeVisibleSig;
+    mapper::Signal confidenceSig;
 
-    mpr::Signal armDirectionSig;
-    mpr::Signal wristPositionSig;
-    mpr::Signal elbowPositionSig;
+    mapper::Signal armDirectionSig;
+    mapper::Signal wristPositionSig;
+    mapper::Signal elbowPositionSig;
 
     MprFinger anonymousFinger;
     MprFinger thumbFinger;
@@ -277,7 +279,7 @@ private:
 
 class MprTool {
 public:
-    MprTool(mpr::Device& dev) {
+    MprTool(mapper::Device& dev) {
         // init signals
         int numInst = NUM;
         tipPositionSig = dev.add_sig(OUT, "tool/tip/position", 3, MPR_FLT, MM,
@@ -287,19 +289,19 @@ public:
     }
     ~MprTool() {}
 
-    void update(const Frame& frame, const Tool &tool, mpr::Time& time) {
+    void update(const Frame& frame, const Tool &tool) {
         int id = tool.id();
-        tipPositionSig.instance(id).set_value(tool.tipPosition(), time);
-        directionSig.instance(id).set_value(tool.direction(), time);
+        tipPositionSig.instance(id).set_value(tool.tipPosition().toFloatPointer(), 3);
+        directionSig.instance(id).set_value(tool.direction().toFloatPointer(), 3);
     }
-    void release(int id, mpr::Time& time) {
-        tipPositionSig.instance(id).release(time);
-        directionSig.instance(id).release(time);
+    void release(int id) {
+        tipPositionSig.instance(id).release();
+        directionSig.instance(id).release();
     }
 
 private:
-    mpr::Signal tipPositionSig;
-    mpr::Signal directionSig;
+    mapper::Signal tipPositionSig;
+    mapper::Signal directionSig;
 };
 
 
@@ -323,12 +325,10 @@ public:
         // TODO: we could use frame.timestamp() reported by Leap Motion
         // is reported as int64_t in microseconds relative to arbitrary timebase
         // needs conversion: estimate timebase, apply offset
-        time.now();
-        dev.start_queue(time);
 
-        numHandsSig.set_value(frame.hands().count(), time);
-        numExtendedFingersSig.set_value(frame.fingers().extended().count(), time);
-        frameRateSig.set_value(frame.currentFramesPerSecond(), time);
+        numHandsSig.set_value(frame.hands().count());
+        numExtendedFingersSig.set_value(frame.fingers().extended().count());
+        frameRateSig.set_value(frame.currentFramesPerSecond());
 
         Hand hand;
         // first check if hands from last handlist are still valid
@@ -336,33 +336,32 @@ public:
             int id = (*i).id();
             hand = frame.hand(id);
             if (!hand.isValid())
-                hands.release(id, time);
+                hands.release(id);
         }
+
         // add or update current hands
         hl = frame.hands();
         for (HandList::const_iterator i = hl.begin(); i != hl.end(); ++i) {
             hand = *i;
-            hands.update(frame, hand, time);
+            hands.update(frame, hand);
         }
 
         const ToolList tl = frame.tools();
         for (ToolList::const_iterator i = tl.begin(); i != tl.end(); ++i) {
             const Tool tool = *i;
-            tools.update(frame, tool, time);
+            tools.update(frame, tool);
         }
-        dev.send_queue(time);
-        dev.poll(1);
+        dev.poll(0);
     }
 
 private:
     HandList hl;
-    mpr::Device dev;
-    mpr::Signal frameRateSig;
-    mpr::Signal numHandsSig;
-    mpr::Signal numExtendedFingersSig;
+    mapper::Device dev;
+    mapper::Signal frameRateSig;
+    mapper::Signal numHandsSig;
+    mapper::Signal numExtendedFingersSig;
     MprHand hands;
     MprTool tools;
-    mpr::Time time;
 };
 
 class SampleListener : public Listener {

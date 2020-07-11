@@ -132,7 +132,7 @@ void drag_handler(mpr_sig sig, mpr_sig_evt evt, mpr_id inst, int len,
         case MPR_SIG_REL_UPSTRM:
 //            if (sign(leftButtonStatus) != 1)
 //                break;
-            mpr_sig_release_inst(sig, inst, time);
+            mpr_sig_release_inst(sig, inst);
             leftButtonStatus = -2;
             updated = 1;
             break;
