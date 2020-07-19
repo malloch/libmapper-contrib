@@ -4,7 +4,7 @@ import sys, math
 from PySide2 import QtGui, QtCore
 from PySide2.QtWidgets import QApplication, QMainWindow, QFrame, QSplitter
 from collections import deque
-import mpr, random
+import mpr as mapper, random
 
 display_sec = 10.0
 

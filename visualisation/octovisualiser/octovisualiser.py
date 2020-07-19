@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, math, mpr
+import sys, math, mapper as mpr
 try:
     import Tkinter as tkinter
 except:

@@ -46,7 +46,6 @@ int polling = 0;
 int unpolled = 0;
 
 int callback(int device, Finger *data, int nFingers, double timestamp, int frame) {
-    unpolled = 0;
     float pair[2];
 
     if (verbose)

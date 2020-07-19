@@ -2,7 +2,7 @@
 
 import websockets
 import json, re
-import mpr
+import mapper as mpr
 
 ws = websockets.serve("localhost", 8765)
 
