@@ -7,22 +7,22 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <mapper/mapper.h>
 
-#define NUMTOUCHES 10
+#define NUMTOUCHES 16
 
 typedef struct { float x,y; } mtPoint;
 typedef struct { mtPoint pos,vel; } mtReadout;
 
 typedef struct {
-  int frame;
-  double timestamp;
-  int identifier, state, foo3, foo4;
-  mtReadout normalized;
-  float size;
-  int zero1;
-  float angle, majorAxis, minorAxis; // ellipsoid
-  mtReadout mm;
-  int zero2[2];
-  float unk2;
+    int frame;
+    double timestamp;
+    int identifier, state, foo3, foo4;
+    mtReadout normalized;
+    float size;
+    int zero1;
+    float angle, majorAxis, minorAxis; // ellipsoid
+    mtReadout mm;
+    int zero2[2];
+    float unk2;
 } Finger;
 
 typedef void *MTDeviceRef;
@@ -42,39 +42,35 @@ mpr_sig areaSig = 0;
 
 int done = 0;
 int verbose = 1;
-int polling = 0;
 int unpolled = 0;
 
 int callback(int device, Finger *data, int nFingers, double timestamp, int frame) {
     float pair[2];
 
     if (verbose)
-      printf("Touch count: %d\n", nFingers);
+        printf("Touch count: %d\n", nFingers);
     else {
-      printf("\rTouch count: %d", nFingers);
-      fflush(stdout);
+        printf("\rTouch count: %d ", nFingers);
+        fflush(stdout);
     }
 
-    if (!polling)
-        mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers);
+    mpr_sig_set_value(countSig, 0, 1, MPR_INT32, &nFingers);
 
     Finger *f = &data[0];
     for (int i = 0; i < nFingers; i++) {
         Finger *f = &data[i];
         if (verbose)
-          printf("  ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
-                 "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
-                 f->identifier,
-                 f->angle,
-                 f->majorAxis,
-                 f->minorAxis,
-                 f->normalized.pos.x,
-                 f->normalized.pos.y,
-                 f->normalized.vel.x,
-                 f->normalized.vel.y,
-                 f->size);
-        if (polling)
-            continue;
+            printf("  ID %2d, Angle %4.2f, ellipse %5.2f x%5.2f, "
+                   "position %5.3f, %5.3f, vel %6.3f, %6.3f, area %6.3f\n",
+                   f->identifier,
+                   f->angle,
+                   f->majorAxis,
+                   f->minorAxis,
+                   f->normalized.pos.x,
+                   f->normalized.pos.y,
+                   f->normalized.vel.x,
+                   f->normalized.vel.y,
+                   f->size);
         if (f->size > 0) {
             // update libmapper signals
             mpr_sig_set_value(angleSig, f->identifier, 1, MPR_FLT, &f->angle);
@@ -101,7 +97,7 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
             mpr_sig_release_inst(areaSig, f->identifier);
         }
     }
-    mpr_dev_update_done(mdev);
+    mpr_dev_process_outputs(mdev);
     return 0;
 }
 
@@ -139,7 +135,7 @@ void ctrlc(int sig)
 int main(int argc, char **argv) {
 
     if (argc > 1 && 0 == strcmp(argv[1], "-q"))
-      verbose = 0;
+        verbose = 0;
 
     signal(SIGINT, ctrlc);
 
@@ -154,15 +150,10 @@ int main(int argc, char **argv) {
     MTDeviceStart(dev, 0);
     printf("Ctrl-C to abort\n");
 
+    // use non-blocking poll() to avoid being interrupted frequently by the touch callback
     while (!done) {
+        mpr_dev_poll(mdev, 0);
         usleep(10000);
-
-        if (++unpolled > 10) {
-            polling = 1;
-            mpr_dev_poll(mdev, 0);
-            polling = 0;
-            unpolled = 0;
-        }
     }
 
     printf("freeing mapper device... ");
