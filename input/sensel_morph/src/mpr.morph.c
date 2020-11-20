@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include "sensel.h"
 #include "sensel_device.h"
-#include "mpr/mpr.h"
+#include "mapper/mapper.h"
 
 SENSEL_HANDLE handle = NULL;
 SenselDeviceList list;
@@ -36,16 +36,13 @@ void loop()
         for (int f = 0; f < n_frames; f++) {
             senselGetFrame(handle, frame);
 
-            mpr_time_set(&time, MPR_NOW);
-            mpr_dev_start_queue(dev, time);
-
             if (!frame->n_contacts && !last_n_contacts)
                 continue;
             else if (frame->n_contacts != last_n_contacts)
                 printf("num_contacts: %d\n", frame->n_contacts);
 
-            mpr_sig_set_value(num_contacts, 0, 1, MPR_INT32, &frame->n_contacts, time);
-            mpr_sig_set_value(acceleration, 0, 3, MPR_INT32, &frame->accel_data, time);
+            mpr_sig_set_value(num_contacts, 0, 1, MPR_INT32, &frame->n_contacts);
+            mpr_sig_set_value(acceleration, 0, 3, MPR_INT32, &frame->accel_data);
 
             for (int c = 0; c < frame->n_contacts; c++) {
                 SenselContact sc = frame->contacts[c];
@@ -55,24 +52,24 @@ void loop()
                 switch (state) {
                     case CONTACT_START:
                     case CONTACT_MOVE:
-                        mpr_sig_set_value(position, id, 2, MPR_FLT, &sc.x_pos, time);
-                        mpr_sig_set_value(velocity, id, 2, MPR_FLT, &sc.delta_x, time);
-                        mpr_sig_set_value(orientation, id, 1, MPR_FLT, &sc.orientation, time);
-                        mpr_sig_set_value(axes, id, 2, MPR_FLT, &sc.major_axis, time);
-                        mpr_sig_set_value(force, id, 1, MPR_FLT, &sc.total_force, time);
-                        mpr_sig_set_value(area, id, 1, MPR_FLT, &sc.area, time);
+                        mpr_sig_set_value(position, id, 2, MPR_FLT, &sc.x_pos);
+                        mpr_sig_set_value(velocity, id, 2, MPR_FLT, &sc.delta_x);
+                        mpr_sig_set_value(orientation, id, 1, MPR_FLT, &sc.orientation);
+                        mpr_sig_set_value(axes, id, 2, MPR_FLT, &sc.major_axis);
+                        mpr_sig_set_value(force, id, 1, MPR_FLT, &sc.total_force);
+                        mpr_sig_set_value(area, id, 1, MPR_FLT, &sc.area);
                         break;
                     default:
-                        mpr_sig_release_inst(position, id, time);
-                        mpr_sig_release_inst(velocity, id, time);
-                        mpr_sig_release_inst(orientation, id, time);
-                        mpr_sig_release_inst(axes, id, time);
-                        mpr_sig_release_inst(force, id, time);
-                        mpr_sig_release_inst(area, id, time);
+                        printf("releasing instance %d\n", id);
+                        mpr_sig_release_inst(position, id);
+                        mpr_sig_release_inst(velocity, id);
+                        mpr_sig_release_inst(orientation, id);
+                        mpr_sig_release_inst(axes, id);
+                        mpr_sig_release_inst(force, id);
+                        mpr_sig_release_inst(area, id);
                         break;
                 }
             }
-            mpr_dev_send_queue(dev, time);
             last_n_contacts = frame->n_contacts;
         }
         mpr_dev_poll(dev, 0);
