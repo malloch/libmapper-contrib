@@ -10,10 +10,9 @@
 #define MAX_LIST 256
 
 // function prototypes
-void mapHandler(mapper_device dev, mapper_map map, mapper_record_event e);
+void mapHandler(mapper::Map map, mpr_graph_evt e);
 
-void signalHandler(mapper_signal sig, mapper_id instance, const void *value,
-                   int count, mapper_timetag_t *timetag);
+void signalHandler(mapper::Signal sig, mpr_sig_evt evt, mpr_id inst, int len, mpr_type type, const void *value, mpr_time *time);
 
 namespace Ui {
 class SignalPlotter;
@@ -30,7 +29,7 @@ public:
 typedef struct _SignalPlotterData {
     QList<SignalPlot *> plots;
     mapper::Device *device;
-    mapper::Database *database;
+    mapper::Graph *graph;
     Ui::SignalPlotter *ui;
 } SignalPlotterData;
 

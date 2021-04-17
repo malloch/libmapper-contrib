@@ -14,7 +14,7 @@
 #define NUM 4
 #define MM "mm"
 #define RAD "radians"
-#define OUT MPR_DIR_OUT
+#define OUT Direction::OUT
 
 float f0 = 0.f, f1 = 1.f;
 float minPos3[3] = {-100.f, -100.f, -100.f};
@@ -27,6 +27,7 @@ int i0 = 0, i1 = 1, inum = NUM;
 char str_buffer[128];
 
 using namespace Leap;
+using namespace mapper;
 
 const char* fNames[] = {"thumb/", "index/", "middle/", "ring/", "pinky/", ""};
 const char* bNames[] = {"metacarpal/", "proximal/", "intermediate/", "distal/"};
@@ -39,14 +40,12 @@ public:
         const char* bName = bNames[bIndex];
         int numInst = fIndex == 5 ? NUM : NUM * 5;
         snprintf(str_buffer, 128, "hand/finger/%s%sstart", fName, bName);
-        startSig = dev.add_sig(OUT, str_buffer, 3, MPR_FLT, MM, &minPos3,
-                               &maxPos3, &numInst);
+        startSig = dev.add_signal(OUT, str_buffer, 3, Type::FLOAT, MM, &minPos3, &maxPos3, &numInst);
         snprintf(str_buffer, 128, "hand/finger/%s%send", fName, bName);
-        endSig = dev.add_sig(OUT, str_buffer, 3, MPR_FLT, MM, &minPos3, &maxPos3,
-                             &numInst);
+        endSig = dev.add_signal(OUT, str_buffer, 3, Type::FLOAT, MM, &minPos3, &maxPos3, &numInst);
         snprintf(str_buffer, 128, "hand/finger/%s%sdirection", fName, bName);
-        directionSig = dev.add_sig(OUT, str_buffer, 3, MPR_FLT, RAD,
-                                   &minDir3, &maxDir3, &numInst);
+        directionSig = dev.add_signal(OUT, str_buffer, 3, Type::FLOAT, RAD, &minDir3,
+                                      &maxDir3, &numInst);
     }
     void update(const Bone& bone, int id) {
         startSig.instance(id).set_value(bone.prevJoint().toFloatPointer(), 3);
@@ -125,41 +124,41 @@ public:
     {
         // init signals
         int numInst = NUM;
-        isLeftSig = dev.add_sig(OUT, "hand/isLeft", 1, MPR_INT32, 0, &i0, &i1, &numInst);
-        isRightSig = dev.add_sig(OUT, "hand/isRight", 1, MPR_INT32, 0, &i0, &i1, &numInst);
+        isLeftSig = dev.add_signal(OUT, "hand/isLeft", 1, Type::INT32, 0, &i0, &i1, &numInst);
+        isRightSig = dev.add_signal(OUT, "hand/isRight", 1, Type::INT32, 0, &i0, &i1, &numInst);
 
-        palmPositionSig = dev.add_sig(OUT, "hand/palm/position", 3, MPR_FLT, MM,
-                                      &minPos3, &maxPos3, &numInst);
-        palmPositionStableSig = dev.add_sig(OUT, "hand/palm/position/stable", 3,
-                                            MPR_FLT, MM, &minPos3, &maxPos3, &numInst);
-        palmNormalSig = dev.add_sig(OUT, "hand/palm/normal", 3, MPR_FLT, RAD,
-                                    &minDir3, &maxDir3, &numInst);
-        palmWidthSig = dev.add_sig(OUT, "hand/palm/width", 3, MPR_FLT, MM,
-                                   &minPos3, &maxPos3, &numInst);
-
-        handDirectionSig = dev.add_sig(OUT, "hand/direction", 3, MPR_FLT, RAD,
+        palmPositionSig = dev.add_signal(OUT, "hand/palm/position", 3, Type::FLOAT, MM,
+                                         &minPos3, &maxPos3, &numInst);
+        palmPositionStableSig = dev.add_signal(OUT, "hand/palm/position/stable", 3,
+                                               Type::FLOAT, MM, &minPos3, &maxPos3, &numInst);
+        palmNormalSig = dev.add_signal(OUT, "hand/palm/normal", 3, Type::FLOAT, RAD,
                                        &minDir3, &maxDir3, &numInst);
-
-        sphereCenterSig = dev.add_sig(OUT, "hand/sphere/center", 3, MPR_FLT, MM,
+        palmWidthSig = dev.add_signal(OUT, "hand/palm/width", 3, Type::FLOAT, MM,
                                       &minPos3, &maxPos3, &numInst);
-        sphereRadiusSig = dev.add_sig(OUT, "hand/palm/position", 3, MPR_FLT, MM,
-                                      &minPos3, &maxPos3, &numInst);
-        pinchStrengthSig = dev.add_sig(OUT, "hand/pinch/strength", 1, MPR_FLT,
-                                      "normalized", &f0, &f1, &numInst);
-        grabStrengthSig = dev.add_sig(OUT, "hand/grab/strength", 1, MPR_FLT,
-                                      "normalized", &f0, &f1, &numInst);
 
-        timeVisibleSig = dev.add_sig(OUT, "hand/timeVisible", 1, MPR_FLT,
-                                     "seconds", &f0, NULL, &numInst);
-        grabStrengthSig = dev.add_sig(OUT, "hand/confidence", 1, MPR_FLT,
-                                      "normalized", &f0, &f1, &numInst);
+        handDirectionSig = dev.add_signal(OUT, "hand/direction", 3, Type::FLOAT, RAD,
+                                          &minDir3, &maxDir3, &numInst);
 
-        handDirectionSig = dev.add_sig(OUT, "arm/direction", 3, MPR_FLT, RAD,
-                                       &minDir3, &maxDir3, &numInst);
-        wristPositionSig = dev.add_sig(OUT, "arm/wrist/position", 3, MPR_FLT,
-                                       MM, &minPos3, &maxPos3, &numInst);
-        elbowPositionSig = dev.add_sig(OUT, "arm/elbow/position", 3, MPR_FLT,
-                                       MM, &minPos3, &maxPos3, &numInst);
+        sphereCenterSig = dev.add_signal(OUT, "hand/sphere/center", 3, Type::FLOAT, MM,
+                                         &minPos3, &maxPos3, &numInst);
+        sphereRadiusSig = dev.add_signal(OUT, "hand/palm/position", 3, Type::FLOAT, MM,
+                                         &minPos3, &maxPos3, &numInst);
+        pinchStrengthSig = dev.add_signal(OUT, "hand/pinch/strength", 1, Type::FLOAT,
+                                          "normalized", &f0, &f1, &numInst);
+        grabStrengthSig = dev.add_signal(OUT, "hand/grab/strength", 1, Type::FLOAT,
+                                         "normalized", &f0, &f1, &numInst);
+
+        timeVisibleSig = dev.add_signal(OUT, "hand/timeVisible", 1, Type::FLOAT,
+                                        "seconds", &f0, NULL, &numInst);
+        grabStrengthSig = dev.add_signal(OUT, "hand/confidence", 1, Type::FLOAT,
+                                         "normalized", &f0, &f1, &numInst);
+
+        handDirectionSig = dev.add_signal(OUT, "arm/direction", 3, Type::FLOAT, RAD,
+                                          &minDir3, &maxDir3, &numInst);
+        wristPositionSig = dev.add_signal(OUT, "arm/wrist/position", 3, Type::FLOAT,
+                                          MM, &minPos3, &maxPos3, &numInst);
+        elbowPositionSig = dev.add_signal(OUT, "arm/elbow/position", 3, Type::FLOAT,
+                                          MM, &minPos3, &maxPos3, &numInst);
     }
     ~MprHand() {}
 
@@ -282,10 +281,10 @@ public:
     MprTool(mapper::Device& dev) {
         // init signals
         int numInst = NUM;
-        tipPositionSig = dev.add_sig(OUT, "tool/tip/position", 3, MPR_FLT, MM,
-                                     &minPos3, &maxPos3, &numInst);
-        directionSig = dev.add_sig(OUT, "tool/direction", 3, MPR_FLT, MM,
-                                   &minDir3, &maxDir3, &numInst);
+        tipPositionSig = dev.add_signal(OUT, "tool/tip/position", 3, Type::FLOAT, MM,
+                                        &minPos3, &maxPos3, &numInst);
+        directionSig = dev.add_signal(OUT, "tool/direction", 3, Type::FLOAT, MM,
+                                      &minDir3, &maxDir3, &numInst);
     }
     ~MprTool() {}
 
@@ -312,12 +311,10 @@ public:
     , hands(dev)
     , tools(dev)
     {
-        numHandsSig = dev.add_sig(OUT, "global/numHands", 1, MPR_INT32, 0,
-                                  &i0, &inum);
-        numExtendedFingersSig = dev.add_sig(OUT, "global/numExtendedFingers",
-                                            1, MPR_INT32, 0, &i0);
-        frameRateSig = dev.add_sig(OUT, "global/frameRate",
-                                   1, MPR_FLT, "frames/sec", &f0);
+        numHandsSig = dev.add_signal(OUT, "global/numHands", 1, Type::INT32, 0, &i0, &inum);
+        numExtendedFingersSig = dev.add_signal(OUT, "global/numExtendedFingers",
+                                               1, Type::INT32, 0, &i0);
+        frameRateSig = dev.add_signal(OUT, "global/frameRate", 1, Type::FLOAT, "frames/sec", &f0);
     }
     ~MprLeap() {}
 

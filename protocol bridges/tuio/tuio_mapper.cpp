@@ -209,7 +209,7 @@ int bundleEndHandler(void *user_data)
                currentBox.height(), growth, aggrot);
     }
 
-    dev.update_done();
+    dev.update_maps();
     return 0;
 }
 
@@ -345,35 +345,37 @@ void startup(const char *tuio_port) {
     lo_server_add_bundle_handlers(server, bundleStartHandler, bundleEndHandler, NULL);
 
     float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
-    touchPosition = dev.add_sig(MPR_DIR_OUT, "touch/position", 2, 'f',
-                                "normalized", minf, maxf, &num_touch_inst);
-    touchAggregateCentroid = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/centroid",
-                                         2, 'f', "normalized", minf, maxf, &one);
-    objectPosition = dev.add_sig(MPR_DIR_OUT, "object/position", 2, 'f', NULL,
-                                 minf, maxf, &num_obj_inst);
+    touchPosition = dev.add_signal(mapper::Direction::OUT, "touch/position", 2, mapper::Type::FLOAT,
+                                   "normalized", minf, maxf, &num_touch_inst);
+    touchAggregateCentroid = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/centroid",
+                                            2, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
+    objectPosition = dev.add_signal(mapper::Direction::OUT, "object/position", 2,
+                                    mapper::Type::FLOAT, NULL, minf, maxf, &num_obj_inst);
 
     minf[0] = minf[1] = -1.f;
-    touchAggregateTranslation = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/translation",
-                                            2, 'f', "normalized", minf, maxf, &one);
-    touchAggregateGrowth = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/growth",
-                                       1, 'f', "normalized", minf, maxf, &one);
+    touchAggregateTranslation = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/translation",
+                                               2, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
+    touchAggregateGrowth = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/growth",
+                                          1, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
 
     int mini = 0, maxi = MAX_TOUCH;
-    touchCount = dev.add_sig(MPR_DIR_OUT, "touch/count", 1, 'i', NULL, &mini, &maxi);
-    objectCount = dev.add_sig(MPR_DIR_OUT, "object/count", 1, 'i', NULL, &mini, &maxi);
+    touchCount = dev.add_signal(mapper::Direction::OUT, "touch/count", 1, mapper::Type::INT32,
+                                NULL, &mini, &maxi);
+    objectCount = dev.add_signal(mapper::Direction::OUT, "object/count", 1, mapper::Type::INT32,
+                                 NULL, &mini, &maxi);
 
-    objectType = dev.add_sig(MPR_DIR_OUT, "object/type", 1, 'i', NULL, NULL, NULL,
-                             &num_obj_inst);
+    objectType = dev.add_signal(mapper::Direction::OUT, "object/type", 1, mapper::Type::INT32,
+                                NULL, NULL, NULL, &num_obj_inst);
 
 
 
     minf[0] = -M_PI;
     maxf[0] = M_PI;
-    touchAggregateRotation = dev.add_sig(MPR_DIR_OUT, "touch/aggregate/rotation",
-                                         1, 'f', "radians", minf, maxf, &one);
+    touchAggregateRotation = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/rotation",
+                                            1, mapper::Type::FLOAT, "radians", minf, maxf, &one);
 
-    objectAngle = dev.add_sig(MPR_DIR_OUT, "object/orientation", 1, 'f',
-                              "radians", minf, maxf, &num_obj_inst);
+    objectAngle = dev.add_signal(mapper::Direction::OUT, "object/orientation", 1,
+                                 mapper::Type::FLOAT, "radians", minf, maxf, &num_obj_inst);
 }
 
 void cleanup() {

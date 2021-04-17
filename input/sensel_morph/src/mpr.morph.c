@@ -86,7 +86,7 @@ int main(int argc, char **argv)
     signal(SIGINT, ctrlc);
 
     // connect to Sensel Morph
-    printf("Looking for Sensel Morph device... ");
+    printf("Looking for Sensel Morph device...\n");
     while (!done) {
         senselGetDeviceList(&list);
         if (list.num_devices) {
@@ -94,7 +94,6 @@ int main(int argc, char **argv)
         }
         sleep(1);
     }
-    printf(" found!\n");
 
     // create libmapper device
     printf("Joining mapping graph... ");

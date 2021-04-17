@@ -24,16 +24,16 @@ HEADERS  += signalplotter.h \
 
 FORMS    += signalplotter.ui
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../../../../../../../usr/local/lib/release/ -llo
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../../../../../../../usr/local/lib/debug/ -llo
-else:unix: LIBS += -L$$PWD/../../../../../../../usr/local/lib/ -llo
+win32:CONFIG(release, debug|release): LIBS += -L/usr/local/lib/release/ -llo
+else:win32:CONFIG(debug, debug|release): LIBS += -L/usr/local/lib/debug/ -llo
+else:unix: LIBS += -L/usr/local/lib/ -llo
 
-INCLUDEPATH += $$PWD/../../../../../../../usr/local/include
-DEPENDPATH += $$PWD/../../../../../../../usr/local/include
+INCLUDEPATH += /usr/local/include
+DEPENDPATH += /usr/local/include
 
-win32:CONFIG(release, debug|release): LIBS += -L$$PWD/../../../../../../../usr/local/lib/release/ -lmapper
-else:win32:CONFIG(debug, debug|release): LIBS += -L$$PWD/../../../../../../../usr/local/lib/debug/ -lmapper
-else:unix: LIBS += -L$$PWD/../../../../../../../usr/local/lib/ -lmapper
+win32:CONFIG(release, debug|release): LIBS += -L/usr/local/lib/release/ -lmapper
+else:win32:CONFIG(debug, debug|release): LIBS += -L/usr/local/lib/debug/ -lmapper
+else:unix: LIBS += -L/usr/local/lib/ -lmapper
 
-INCLUDEPATH += $$PWD/../../../../../../../usr/local/include/mapper
-DEPENDPATH += $$PWD/../../../../../../../usr/local/include/mapper
+INCLUDEPATH += /usr/local/include/mapper
+DEPENDPATH += /usr/local/include/mapper

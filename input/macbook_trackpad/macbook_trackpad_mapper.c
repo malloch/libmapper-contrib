@@ -97,7 +97,7 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
             mpr_sig_release_inst(areaSig, f->identifier);
         }
     }
-    mpr_dev_process_outputs(mdev);
+    mpr_dev_update_maps(mdev);
     return 0;
 }
 
