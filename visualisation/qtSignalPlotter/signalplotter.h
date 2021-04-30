@@ -5,14 +5,14 @@
 #include <qcustomplot.h>
 
 #include <mapper/mapper_cpp.h>
-#include <mapper/mapper.h>
 
 #define MAX_LIST 256
 
 // function prototypes
 void mapHandler(mapper::Map map, mpr_graph_evt e);
 
-void signalHandler(mapper::Signal sig, mpr_sig_evt evt, mpr_id inst, int len, mpr_type type, const void *value, mpr_time *time);
+void signalHandler(mapper::Signal&& sig, mapper::Signal::Event evt, mapper::Id inst, int len,
+                   mapper::Type type, const void *value, mapper::Time&& time);
 
 namespace Ui {
 class SignalPlotter;
@@ -28,8 +28,8 @@ public:
 
 typedef struct _SignalPlotterData {
     QList<SignalPlot *> plots;
-    mapper::Device *device;
-    mapper::Graph *graph;
+    mapper::Device device;
+    mapper::Graph graph;
     Ui::SignalPlotter *ui;
 } SignalPlotterData;
 

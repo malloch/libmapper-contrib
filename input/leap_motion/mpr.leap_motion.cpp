@@ -14,7 +14,7 @@
 #define NUM 4
 #define MM "mm"
 #define RAD "radians"
-#define OUT Direction::OUT
+#define OUT Direction::OUTGOING
 
 float f0 = 0.f, f1 = 1.f;
 float minPos3[3] = {-100.f, -100.f, -100.f};

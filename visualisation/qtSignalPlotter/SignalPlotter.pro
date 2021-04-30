@@ -24,9 +24,9 @@ HEADERS  += signalplotter.h \
 
 FORMS    += signalplotter.ui
 
-win32:CONFIG(release, debug|release): LIBS += -L/usr/local/lib/release/ -llo
-else:win32:CONFIG(debug, debug|release): LIBS += -L/usr/local/lib/debug/ -llo
-else:unix: LIBS += -L/usr/local/lib/ -llo
+#win32:CONFIG(release, debug|release): LIBS += -L/usr/local/lib/release/ -llo
+#else:win32:CONFIG(debug, debug|release): LIBS += -L/usr/local/lib/debug/ -llo
+#else:unix: LIBS += -L/usr/local/lib/ -llo
 
 INCLUDEPATH += /usr/local/include
 DEPENDPATH += /usr/local/include

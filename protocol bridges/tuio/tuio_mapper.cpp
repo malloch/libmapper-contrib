@@ -345,36 +345,36 @@ void startup(const char *tuio_port) {
     lo_server_add_bundle_handlers(server, bundleStartHandler, bundleEndHandler, NULL);
 
     float minf[2] = {0.f, 0.f}, maxf[2] = {1.f, 1.f};
-    touchPosition = dev.add_signal(mapper::Direction::OUT, "touch/position", 2, mapper::Type::FLOAT,
-                                   "normalized", minf, maxf, &num_touch_inst);
-    touchAggregateCentroid = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/centroid",
+    touchPosition = dev.add_signal(mapper::Direction::OUTGOING, "touch/position", 2,
+                                   mapper::Type::FLOAT, "normalized", minf, maxf, &num_touch_inst);
+    touchAggregateCentroid = dev.add_signal(mapper::Direction::OUTGOING, "touch/aggregate/centroid",
                                             2, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
-    objectPosition = dev.add_signal(mapper::Direction::OUT, "object/position", 2,
+    objectPosition = dev.add_signal(mapper::Direction::OUTGOING, "object/position", 2,
                                     mapper::Type::FLOAT, NULL, minf, maxf, &num_obj_inst);
 
     minf[0] = minf[1] = -1.f;
-    touchAggregateTranslation = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/translation",
+    touchAggregateTranslation = dev.add_signal(mapper::Direction::OUTGOING, "touch/aggregate/translation",
                                                2, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
-    touchAggregateGrowth = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/growth",
+    touchAggregateGrowth = dev.add_signal(mapper::Direction::OUTGOING, "touch/aggregate/growth",
                                           1, mapper::Type::FLOAT, "normalized", minf, maxf, &one);
 
     int mini = 0, maxi = MAX_TOUCH;
-    touchCount = dev.add_signal(mapper::Direction::OUT, "touch/count", 1, mapper::Type::INT32,
+    touchCount = dev.add_signal(mapper::Direction::OUTGOING, "touch/count", 1, mapper::Type::INT32,
                                 NULL, &mini, &maxi);
-    objectCount = dev.add_signal(mapper::Direction::OUT, "object/count", 1, mapper::Type::INT32,
+    objectCount = dev.add_signal(mapper::Direction::OUTGOING, "object/count", 1, mapper::Type::INT32,
                                  NULL, &mini, &maxi);
 
-    objectType = dev.add_signal(mapper::Direction::OUT, "object/type", 1, mapper::Type::INT32,
+    objectType = dev.add_signal(mapper::Direction::OUTGOING, "object/type", 1, mapper::Type::INT32,
                                 NULL, NULL, NULL, &num_obj_inst);
 
 
 
     minf[0] = -M_PI;
     maxf[0] = M_PI;
-    touchAggregateRotation = dev.add_signal(mapper::Direction::OUT, "touch/aggregate/rotation",
+    touchAggregateRotation = dev.add_signal(mapper::Direction::OUTGOING, "touch/aggregate/rotation",
                                             1, mapper::Type::FLOAT, "radians", minf, maxf, &one);
 
-    objectAngle = dev.add_signal(mapper::Direction::OUT, "object/orientation", 1,
+    objectAngle = dev.add_signal(mapper::Direction::OUTGOING, "object/orientation", 1,
                                  mapper::Type::FLOAT, "radians", minf, maxf, &num_obj_inst);
 }
 
