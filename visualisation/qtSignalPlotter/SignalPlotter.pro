@@ -11,16 +11,16 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport
 TARGET = SignalPlotter
 TEMPLATE = app
 
-CONFIG      += no_keywords #signals
+CONFIG += no_keywords #signals
 
 CONFIG += c++11
 
-SOURCES += main.cpp\
+SOURCES += main.cpp \
         signalplotter.cpp \
-    qcustomplot.cpp
+        qcustomplot.cpp
 
 HEADERS  += signalplotter.h \
-    qcustomplot.h
+            qcustomplot.h
 
 FORMS    += signalplotter.ui
 

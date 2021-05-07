@@ -28,9 +28,10 @@ public:
 
 typedef struct _SignalPlotterData {
     QList<SignalPlot *> plots;
-    mapper::Device device;
-    mapper::Graph graph;
+    mapper::Device* device;
+    mapper::Graph* graph;
     Ui::SignalPlotter *ui;
+    int plot_index;
 } SignalPlotterData;
 
 class SignalPlotter : public QMainWindow
@@ -45,7 +46,11 @@ private Q_SLOTS:
   void realtimeDataSlot();
 
 private:
+
     Ui::SignalPlotter *ui;
+    QList<SignalPlot *> plots;
+    mapper::Device device;
+    mapper::Graph graph;
     SignalPlotterData data;
     QTimer dataTimer;
 };
