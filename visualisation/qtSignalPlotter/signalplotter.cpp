@@ -31,51 +31,50 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
     }
 
     mapper::Device* d = data->device;
-    std::string myName = (*d).property(Property::NAME);
+    std::string my_name = (*d).property(Property::NAME);
 
-    if (myName.empty()) {
+    if (my_name.empty()) {
         return;
     }
 
     // check if we are the source, if so delete map
     for (Signal s : map.signals(Map::Location::SRC)) {
-        std::string srcName = s.device()[Property::NAME];
-        if (myName.compare(srcName) == 0) {
+        std::string src_name = s.device().property(Property::NAME);
+        if (my_name.compare(src_name) == 0) {
             qInfo("SignalPlotter signals cannot be the source of a map.");
             map.release();
             return;
         }
     }
 
-    bool isLocal = false;
+    bool is_local = false;
     for (Signal&& s : map.signals(Map::Location::DST)) {
-        std::string dstName = s.device()[Property::NAME];
-        if (myName.compare(dstName) == 0) {
-            isLocal = true;
+        std::string dst_name = s.device().property(Property::NAME);
+        if (my_name.compare(dst_name) == 0) {
+            is_local = true;
             break;
         }
     }
 
-    if (!isLocal) {
+    if (!is_local) {
         qInfo("map is not local, ignoring.");
         return;
     }
     else
         qInfo("map is local, proceeding.");
 
-    mapper::Signal dst = map.signals(Map::Location::DST)[0];
-    std::string dst_name = dst[Property::NAME];
+    mapper::Signal src = map.signals(mapper::Map::Location::SRC)[0];
+    std::string src_sig_name = src.property(Property::NAME);
+    std::string src_dev_name = src.device().property(Property::NAME);
 
-    // NEW
-    // check if dst signal is already mapped or mapped to 'connect_here'
-    // if so transfer map to new signal
+    mapper::Signal dst = map.signals(Map::Location::DST)[0];
+    std::string dst_sig_name = dst[Property::NAME];
 
     switch (evt) {
     case Graph::Event::OBJ_NEW: {
         qInfo("NEW MAP!\n");
-        // TODO: actually compare src and dst names, return if they match
-        if (dst_name.compare("plotme") != 0) {
-            qInfo("dst name is %s, ignoring", dst_name.c_str());
+        std::string src_full_name = src_dev_name + "/" + src_sig_name;
+        if (dst_sig_name.compare(src_full_name) == 0) {
             return;
         }
 
@@ -90,25 +89,24 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         qInfo("creating new input signal");
         // create a matching input signal
         mapper::Signal sig = 0;
-        mapper::Signal src = map.signals(mapper::Map::Location::SRC)[0];
-        const char* srcName = (const char*)src[Property::NAME];
-        int length = src[Property::LENGTH];
-        int numInst = src[Property::NUM_INSTANCES];
+
+        int length = src.property(Property::LENGTH);
+        int numInst = src.property(Property::NUM_INSTANCES);
         float minArray[length], maxArray[length], *min = 0, *max = 0;
-        if (src[Property::MIN] && src[Property::MAX]) {
-            switch ((Type)src[Property::TYPE]) {
+        if (src.property(Property::MIN) && src.property(Property::MAX)) {
+            switch ((Type)src.property(Property::TYPE)) {
             case Type::FLOAT: {
                 qInfo("FLOAT");
-                min = (float*)src[Property::MIN];
-                max = (float*)src[Property::MAX];
+                min = (float*)src.property(Property::MIN);
+                max = (float*)src.property(Property::MAX);
                 for (int i = 0; i < length; i++)
                     qInfo("min=%p, max=%p", min, max);
                 break;
             }
             case Type::INT32: {
                 qInfo("INT32");
-                int *src_mini = (int*)src[Property::MIN];
-                int *src_maxi = (int*)src[Property::MAX];
+                int *src_mini = (int*)src.property(Property::MIN);
+                int *src_maxi = (int*)src.property(Property::MAX);
                 for (int i = 0; i < length; i++) {
                     minArray[i] = (float)src_mini[i];
                     maxArray[i] = (float)src_maxi[i];
@@ -118,8 +116,8 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
                 break;
             }
             case Type::DOUBLE: {
-                double *src_mind = (double*)src[Property::MIN];
-                double *src_maxd = (double*)src[Property::MAX];
+                double *src_mind = (double*)src.property(Property::MIN);
+                double *src_maxd = (double*)src.property(Property::MAX);
                 for (int i = 0; i < length; i++) {
                     minArray[i] = (float)src_mind[i];
                     maxArray[i] = (float)src_maxd[i];
@@ -134,7 +132,7 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
             }
         }
 
-        sig = data->device->add_signal(Direction::INCOMING, srcName, length, Type::FLOAT);
+        sig = data->device->add_signal(Direction::INCOMING, src_full_name, length, Type::FLOAT);
 //        sig = data->device->add_signal(Direction::INCOMING, (const char*)src[Property::NAME],
 //                                       length, Type::FLOAT, 0, min, max, &numInst);
         if (!sig)
@@ -155,20 +153,22 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         // connect the new signal
         mapper::Map newmap(src, sig);
 
-//        map expression not being sent!
-
         newmap.set_property(Property::EXPRESSION, "y=linear(x,?,?,0,5)");
-//        newmap[Property::EXPRESSION] = "y=linear(x,?,?,0,5)";
-//        newmap[Property::PROCESS_LOCATION] = Map::Location::DST;
+        newmap[Property::PROCESS_LOCATION] = Map::Location::DST;
         newmap.push();
         break;
     }
     case mapper::Graph::Event::OBJ_REM: {
-        if (dst_name.compare("plotme") == 0) {
+        qInfo("map removed");
+        std::string src_full_name = src_dev_name + "/" + src_sig_name;
+        if (dst_sig_name.compare(src_full_name) != 0) {
             return;
         }
-        // remove corresponding signal
-        data->device->remove_signal(dst);
+        // remove corresponding signal. We need to look it up by name since dst is the graph's copy of the signal
+        Signal loc = data->device->signals().filter(Property::NAME, dst_sig_name, Operator::EQUAL);
+        data->device->remove_signal(loc);
+
+        // remove plot/graph etc.
         break;
     }
     default:
