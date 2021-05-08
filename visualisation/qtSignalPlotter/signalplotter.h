@@ -21,8 +21,7 @@ class SignalPlotter;
 class SignalPlot
 {
 public:
-    QCustomPlot *plotter;
-    int index;
+    QCPGraph* qcpGraph;
     double average;
 };
 

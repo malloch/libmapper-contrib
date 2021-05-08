@@ -11,8 +11,8 @@ void signalHandler(Signal&& sig, Signal::Event evt, Id inst, int len, Type type,
     if (s && value) {
         double dtime = time;
         double dval = ((float*)value)[0];
-        s->plotter->graph(s->index)->addData(dtime, dval);
-        s->plotter->graph(s->index)->data()->removeBefore(dtime-8);
+        s->qcpGraph->addData(dtime, dval);
+        s->qcpGraph->data()->removeBefore(dtime-8);
     }
     // TODO:
 }
@@ -132,20 +132,18 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
             }
         }
 
-        sig = data->device->add_signal(Direction::INCOMING, src_full_name, length, Type::FLOAT);
-//        sig = data->device->add_signal(Direction::INCOMING, (const char*)src[Property::NAME],
-//                                       length, Type::FLOAT, 0, min, max, &numInst);
+        sig = data->device->add_signal(Direction::INCOMING, src_full_name, length, Type::FLOAT,
+                                       0, min, max, &numInst);
         if (!sig)
             return;
 
         // add a corresponding plot
         QColor color;
         color.setHsvF(data->plot_index*0.1, 1.0, 1.0, 1.0);
-        data->ui->customPlot->addGraph()->setPen(QPen(QBrush(color), 2));
         SignalPlot* plot = new SignalPlot;
-        plot->index = data->plot_index;
+        plot->qcpGraph = data->ui->customPlot->addGraph();
+        plot->qcpGraph->setPen(QPen(QBrush(color), 2));
         data->plot_index += 1;
-        plot->plotter = data->ui->customPlot;
         data->plots << plot;
         sig.set_property("plot", (void*)plot);
         sig.set_callback(signalHandler);
@@ -166,6 +164,17 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         }
         // remove corresponding signal. We need to look it up by name since dst is the graph's copy of the signal
         Signal loc = data->device->signals().filter(Property::NAME, dst_sig_name, Operator::EQUAL);
+
+        if (loc) {
+            //retrieve signal data
+            SignalPlot* s = (SignalPlot*)(void*)loc["plot"];
+            int idx = data->plots.indexOf(s);
+            if (idx >= 0)
+                data->plots.removeAt(idx);
+            data->ui->customPlot->removeGraph(s->qcpGraph);
+            delete s;
+        }
+
         data->device->remove_signal(loc);
 
         // remove plot/graph etc.
@@ -232,7 +241,7 @@ void SignalPlotter::realtimeDataSlot()
     device.poll(10);
     graph.poll(10);
     for (auto const& plot : plots) {
-        ui->customPlot->graph(plot->index)->rescaleValueAxis();
+        plot->qcpGraph->rescaleValueAxis();
     }
 
     mapper::Time time;
