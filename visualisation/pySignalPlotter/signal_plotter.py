@@ -4,7 +4,7 @@ import sys, math
 from PySide2 import QtGui, QtCore
 from PySide2.QtWidgets import QApplication, QMainWindow, QFrame, QSplitter
 from collections import deque
-import mpr as mapper, random
+import mapper as mpr, random
 
 display_sec = 10.0
 
@@ -63,8 +63,9 @@ def sig_handler(sig, event, id, val, tt):
 
 def on_map(type, map, event):
     print('on_map!')
-    src = map.signal(mpr.LOC_SRC)
-    dst = map.signal(mpr.LOC_DST)
+    src = map.signals(mpr.LOC_SRC)[0]
+    dst = map.signals(mpr.LOC_DST)[0]
+    print(src['name'], '->', dst['name'])
     if src['is_local']:
         map.release()
         return
@@ -77,12 +78,17 @@ def on_map(type, map, event):
         if dstname == srcname:
             return
         print('  rerouting...')
-        newsig = dev.add_signal(mpr.DIR_IN, srcname, 1, mpr.FLT, None, None,
-                                None, None, sig_handler)
+        newsig = dev.add_signal(mpr.DIR_IN, srcname, 1, mpr.FLT, None, None, None, None, sig_handler)
         if not newsig:
             print('  error creating signal', srcnamefull)
             return
-        signals[srcname] = {'sig' : newsig, 'vals' : deque([]), 'tts' : deque([]), 'len' : 0, 'min' : [None, 0], 'max' : [None, 1], 'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2), 'label' : 0}
+        signals[srcname] = {'sig' : newsig,
+                            'vals' : deque([]),
+                            'tts' : deque([]),
+                            'len' : 0, 'min' : [None, 0],
+                            'max' : [None, 1],
+                            'pen' : QtGui.QPen(QtGui.QBrush(QtGui.QColor(random.randint(0,255), random.randint(0,255), random.randint(0,255))), 2),
+                            'label' : 0}
         print('  signals:', signals)
         mpr.map(src, newsig).push()
         map.release()
@@ -131,7 +137,7 @@ class plotter(QFrame):
         self.drawGraph(event, qp)
 
     def drawGraph(self, event, qp):
-        then = mpr.timetag().get_double() - display_sec   # 10 seconds ago
+        then = mpr.time().get_double() - display_sec   # 10 seconds ago
         for i in signals:
             if not len (signals[i]['vals']):
                 continue
@@ -163,7 +169,7 @@ class plotter(QFrame):
             label_y_count = 0
             tt = tts[0]
             for j in range(len(vals)):
-                if math.isnan(vals[j]) or math.isinf(vals[j]):
+                if vals[j] == None or math.isnan(vals[j]) or math.isinf(vals[j]):
                     wasNan = True
                     continue;
                 x = (tts[j] - then) * x_scale
