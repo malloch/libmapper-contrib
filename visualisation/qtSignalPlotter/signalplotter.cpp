@@ -39,8 +39,8 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
 
     // check if we are the source, if so delete map
     for (Signal s : map.signals(Map::Location::SRC)) {
-        std::string src_name = s.device().property(Property::NAME);
-        if (my_name.compare(src_name) == 0) {
+        bool is_local = s.device().property(Property::IS_LOCAL);
+        if (is_local) {
             qInfo("SignalPlotter signals cannot be the source of a map.");
             map.release();
             return;
@@ -49,19 +49,13 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
 
     bool is_local = false;
     for (Signal&& s : map.signals(Map::Location::DST)) {
-        std::string dst_name = s.device().property(Property::NAME);
-        if (my_name.compare(dst_name) == 0) {
-            is_local = true;
+        is_local = s.device().property(Property::IS_LOCAL);
+        if (is_local)
             break;
-        }
     }
 
-    if (!is_local) {
-        qInfo("map is not local, ignoring.");
+    if (!is_local)
         return;
-    }
-    else
-        qInfo("map is local, proceeding.");
 
     mapper::Signal src = map.signals(mapper::Map::Location::SRC)[0];
     std::string src_sig_name = src.property(Property::NAME);
@@ -72,11 +66,9 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
 
     switch (evt) {
     case Graph::Event::OBJ_NEW: {
-        qInfo("NEW MAP!\n");
         std::string src_full_name = src_dev_name + "/" + src_sig_name;
-        if (dst_sig_name.compare(src_full_name) == 0) {
+        if (dst_sig_name.compare(src_full_name) == 0)
             return;
-        }
 
         // unmap the generic signal
         map.release();
@@ -86,7 +78,6 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
             return;
         }
 
-        qInfo("creating new input signal");
         // create a matching input signal
         mapper::Signal sig = 0;
 
@@ -96,15 +87,11 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         if (src.property(Property::MIN) && src.property(Property::MAX)) {
             switch ((Type)src.property(Property::TYPE)) {
             case Type::FLOAT: {
-                qInfo("FLOAT");
                 min = (float*)src.property(Property::MIN);
                 max = (float*)src.property(Property::MAX);
-                for (int i = 0; i < length; i++)
-                    qInfo("min=%p, max=%p", min, max);
                 break;
             }
             case Type::INT32: {
-                qInfo("INT32");
                 int *src_mini = (int*)src.property(Property::MIN);
                 int *src_maxi = (int*)src.property(Property::MAX);
                 for (int i = 0; i < length; i++) {
@@ -157,27 +144,19 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         break;
     }
     case mapper::Graph::Event::OBJ_REM: {
-        qInfo("map removed");
         std::string src_full_name = src_dev_name + "/" + src_sig_name;
         if (dst_sig_name.compare(src_full_name) != 0) {
             return;
         }
-        // remove corresponding signal. We need to look it up by name since dst is the graph's copy of the signal
-        Signal loc = data->device->signals().filter(Property::NAME, dst_sig_name, Operator::EQUAL);
 
-        if (loc) {
-            //retrieve signal data
-            SignalPlot* s = (SignalPlot*)(void*)loc["plot"];
-            int idx = data->plots.indexOf(s);
-            if (idx >= 0)
-                data->plots.removeAt(idx);
-            data->ui->customPlot->removeGraph(s->qcpGraph);
-            delete s;
-        }
-
-        data->device->remove_signal(loc);
-
-        // remove plot/graph etc.
+        //retrieve signal data
+        SignalPlot* s = (SignalPlot*)(void*)dst["plot"];
+        int idx = data->plots.indexOf(s);
+        if (idx >= 0)
+            data->plots.removeAt(idx);
+        data->ui->customPlot->removeGraph(s->qcpGraph);
+        delete s;
+        data->device->remove_signal(dst);
         break;
     }
     default:
@@ -189,8 +168,7 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
 SignalPlotter::SignalPlotter(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::SignalPlotter),
-    device("SignalPlotter"),
-    graph(Type::OBJECT)
+    device("SignalPlotter")
 {
     ui->setupUi(this);
     setGeometry(400, 250, 542, 390);
@@ -210,14 +188,8 @@ SignalPlotter::SignalPlotter(QWidget *parent) :
     data.ui = ui;
     data.device = &device;
     // TODO: use device graph instead
-    data.graph = &graph;
-//    mapper::Graph graph = device.graph();
+    mapper::Graph graph = device.graph();
     graph.set_property("plot", (void*)&data);
-    qInfo("added user_data %p\n", &data);
-    qInfo("  with device %p\n", &data.device);
-
-//    New plan: device-local graphs should only call handlers for objects that relate to local stuff
-//              e.g. when a local map is created...
 
     // add a map handler to the device
     graph.add_callback(mapHandler, Type::OBJECT);
@@ -239,7 +211,6 @@ SignalPlotter::~SignalPlotter()
 void SignalPlotter::realtimeDataSlot()
 {
     device.poll(10);
-    graph.poll(10);
     for (auto const& plot : plots) {
         plot->qcpGraph->rescaleValueAxis();
     }
