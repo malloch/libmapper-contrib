@@ -70,6 +70,7 @@ void loop()
                         break;
                 }
             }
+            mpr_dev_update_maps(dev);
             last_n_contacts = frame->n_contacts;
         }
         mpr_dev_poll(dev, 0);
