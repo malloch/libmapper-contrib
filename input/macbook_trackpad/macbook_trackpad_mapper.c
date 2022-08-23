@@ -1,4 +1,4 @@
-/* Adaptation of MacBook Multitouch code by  Erling Ellingsen:      *
+/* Adaptation of MacBook Multitouch code by Erling Ellingsen:       *
  * http://www.steike.com/code/multitouch/                           */
 
 #include <math.h>
@@ -32,6 +32,7 @@ MTDeviceRef MTDeviceCreateDefault();
 void MTRegisterContactFrameCallback(MTDeviceRef, MTContactCallbackFunction);
 void MTDeviceStart(MTDeviceRef, int); // thanks comex
 
+const char* default_name = "touchpad";
 mpr_dev mdev = 0;
 mpr_sig countSig = 0;
 mpr_sig angleSig = 0;
@@ -88,6 +89,14 @@ int callback(int device, Finger *data, int nFingers, double timestamp, int frame
             mpr_sig_set_value(velocitySig, f->identifier, 2, MPR_FLT, pair);
 
             mpr_sig_set_value(areaSig, f->identifier, 1, MPR_FLT, &f->size);
+
+            if (f->size > 1) {
+                // calculate pan/rotate/zoom
+
+                // pan = avg velocity scaled by current zoom level
+
+                // zoom = average expansion/contraction around mutual centre
+            }
         }
         else {
             mpr_sig_release_inst(angleSig, f->identifier);
@@ -132,14 +141,40 @@ void ctrlc(int sig)
     done = 1;
 }
 
-int main(int argc, char **argv) {
-
-    if (argc > 1 && 0 == strcmp(argv[1], "-q"))
-        verbose = 0;
+int main(int argc, char **argv)
+{
+    int i, j;
+    const char* dev_name = default_name;
+    for (i = 1; i < argc; i++) {
+        if (argv[i] && argv[i][0] == '-') {
+            int len = strlen(argv[i]);
+            for (j = 1; j < len; j++) {
+                switch (argv[i][j]) {
+                    case 'h':
+                        printf("macbook_trackpad_mapper.c: possible arguments "
+                               "-q quiet (suppress output), "
+                               "-h help, "
+                               "--alias <string> (default: '%s')\n", default_name);
+                        return 1;
+                        break;
+                    case 'q':
+                        verbose = 0;
+                        break;
+                    case '-':
+                        if (++j < len && strcmp(argv[i]+j, "alias")==0)
+                            if (++i < argc)
+                                dev_name = argv[i];
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+    }
 
     signal(SIGINT, ctrlc);
 
-    mdev = mpr_dev_new("touchpad", 0);
+    mdev = mpr_dev_new(dev_name, 0);
     add_signals();
     while (!mpr_dev_get_is_ready(mdev)) {
         mpr_dev_poll(mdev, 0);
