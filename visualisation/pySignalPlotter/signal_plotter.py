@@ -1,8 +1,7 @@
 from PySide6.QtWidgets import QApplication, QMainWindow
 from PySide6.QtCore import QTimer
 import pyqtgraph as pg
-import sys, math, random
-from random import randint
+import sys, math, time
 from collections import deque
 import libmapper as mpr
 
@@ -11,7 +10,6 @@ sigs_to_free = []
 cleared = True
 
 display_sec = 10.0
-start = mpr.Time().get_double()
 
 '''
 todo/think about:
@@ -21,8 +19,15 @@ todo/think about:
 - use predicable colours instead of random
 '''
 
+class TimeAxisItem(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def tickStrings(self, values, scale, spacing):
+        return [time.strftime('%H:%M:%S', time.localtime(value)) for value in values]
+
 def sig_handler(sig, event, id, val, tt):
-    now = tt.get_double() - start
+    now = tt.get_double()
 
     if event == mpr.Signal.Event.REL_UPSTRM:
         sig.instance(id).release()
@@ -36,16 +41,27 @@ def sig_handler(sig, event, id, val, tt):
         print('signal not found')
         return
 
-    if val == None:
-        val = float('nan')
+    vec_len = match['vec_len']
 
-    if id in match['vals']:
-        match['vals'][id].append(val)
-        match['tts'][id].append(now)
+    if id not in match['vals']:
+        # don't bother recording and instance release
+        if val != None:
+            if isinstance(val, list):
+                match['vals'][id] = [deque([val[el]]) for el in range(vec_len)]
+            else:
+                match['vals'][id] = [deque([val])]
+            match['tts'][id] = deque([now])
+            match['plots'][id] = None
+        return
+    elif val == None:
+        for el in range(vec_len):
+            match['vals'][id][el].append(float('nan'))
+    elif isinstance(val, list):
+        for el in range(vec_len):
+            match['vals'][id][el].append(val[el])
     else:
-        match['vals'][id] = deque([val])
-        match['tts'][id] = deque([now])
-        match['plots'][id] = None
+        match['vals'][id][0].append(val)
+    match['tts'][id].append(now)
 
 def on_map(type, map, event):
     print('on_map!')
@@ -64,18 +80,20 @@ def on_map(type, map, event):
         if dstname == srcname:
             return
         print('  rerouting...')
-        newsig = dev.add_signal(mpr.Direction.INCOMING, srcname, 1, mpr.Type.FLOAT,
+        vec_len = src[mpr.Property.LENGTH]
+        newsig = dev.add_signal(mpr.Direction.INCOMING, srcname, vec_len, mpr.Type.FLOAT,
                                 None, None, None, 10, sig_handler, mpr.Signal.Event.ALL)
         if not newsig:
             print('  error creating signal', srcnamefull)
             return
 
-        signals[srcname] = {'sig'   : newsig,
-                            'vals' : {},
-                            'tts'   : {},
-                            'pen'   : pg.mkPen(color=(randint(0,255), randint(0,255), randint(0,255)),width=2),
-                            'plots' : {},
-                            'label' : 0}
+        signals[srcname] = {'sig'       : newsig,
+                            'vec_len'   : vec_len,
+                            'vals'      : {},
+                            'tts'       : {},
+                            'pens'      : [pg.mkPen(color=i, width=3) for i in range(vec_len)],
+                            'plots'     : {},
+                            'label'     : 0 }
         print('  signals:', signals)
         mpr.Map(src, newsig).push()
         map.release()
@@ -101,11 +119,9 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.graphWidget)
 
         self.setWindowTitle('libmapper signal plotter')
-#        self.splitter = QSplitter(QtCore.Qt.Horizontal, self)
-#
-#        self.setCentralWidget(self.splitter)
 
-        self.graphWidget.setBackground('w')
+        self.graphWidget.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
+        self.graphWidget.showGrid(x=True, y=True)
 
         self.timer = QTimer()
         self.timer.setInterval(25)
@@ -113,34 +129,40 @@ class MainWindow(QMainWindow):
         self.timer.start()
 
     def update_graph(self):
-        now = mpr.Time().get_double() - start
+        now = mpr.Time().get_double()
         then = now - display_sec   # 10 seconds ago
         for s in signals:
             if not len (signals[s]['vals']):
                 # no active instances? remove this?
                 continue
 
-            for i in signals[s]['vals']:
-                tts = signals[s]['tts'][i]
-                vals = signals[s]['vals'][i]
+            for inst in signals[s]['vals']:
+                tts = signals[s]['tts'][inst]
+                vals = signals[s]['vals'][inst]
+                vec_len = signals[s]['vec_len']
                 to_pop = 0
                 for tt in tts:
                     if tt > then:
                         break
                     to_pop += 1
 
+                # TODO: use numpy to handle instances, vectors
+
                 # using deques instead of arrays seems to be slightly more efficient (~1% cpu)
+                for el in range(vec_len):
+                    for j in range(to_pop):
+                        vals[el].popleft()
                 for j in range(to_pop):
-                    vals.popleft()
                     tts.popleft()
 
-                if not len (signals[s]['vals'][i]):
+                if not len (signals[s]['tts'][inst]):
                     continue
 
-                if signals[s]['plots'][i] == None:
-                    signals[s]['plots'][i] = self.graphWidget.plot(tts, vals, pen=signals[s]['pen'], connect='finite')
+                if signals[s]['plots'][inst] == None:
+                    signals[s]['plots'][inst] = [self.graphWidget.plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
                 else:
-                    signals[s]['plots'][i].setData(tts, vals, connect='finite')
+                    for el in range(vec_len):
+                        signals[s]['plots'][inst][el].setData(tts, vals[el], connect='finite')
 
         self.graphWidget.setXRange(then, now, padding=0)
 
