@@ -126,6 +126,21 @@ class MainWindow(QMainWindow):
                 # no active instances? remove this?
                 continue
 
+            if 'plot' not in signals[s]:
+                plot = self.layout.addPlot(row=self.layout.nextRow(), col=0)
+                plot.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
+
+                units = signals[s]['sig'][mpr.Property.UNIT]
+                if units == 'unknown':
+                    units = ''
+                else:
+                    units = ' (' + units + ')'
+                plot.setLabel('left', signals[s]['sig'][mpr.Property.NAME] + units)
+
+                plot.showGrid(x=True, y=True)
+
+                signals[s]['plot'] = plot
+
             for inst in signals[s]['vals']:
                 tts = signals[s]['tts'][inst]
                 vals = signals[s]['vals'][inst]
@@ -148,20 +163,7 @@ class MainWindow(QMainWindow):
                     continue
 
                 if signals[s]['curves'][inst] == None:
-                    plot = self.layout.addPlot(row=self.layout.nextRow(), col=0)
-                    plot.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
-
-                    units = signals[s]['sig'][mpr.Property.UNIT]
-                    if units == 'unknown':
-                        units = ''
-                    else:
-                        units = ' (' + units + ')'
-                    plot.setLabel('left', signals[s]['sig'][mpr.Property.NAME] + units)
-
-                    plot.showGrid(x=True, y=True)
-
-                    signals[s]['plot'] = plot
-                    signals[s]['curves'][inst] = [plot.plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
+                    signals[s]['curves'][inst] = [signals[s]['plot'].plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
                 else:
                     for el in range(vec_len):
                         signals[s]['curves'][inst][el].setData(tts, vals[el], connect='finite')
