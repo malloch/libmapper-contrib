@@ -7,17 +7,8 @@ import libmapper as mpr
 
 signals = {}
 sigs_to_free = []
-cleared = True
 
 display_sec = 10.0
-
-'''
-todo/think about:
-- use one plot per connected signal
-    - add/remove plots as needed
-- enable plotting vector signals
-- use predicable colours instead of random
-'''
 
 class TimeAxisItem(pg.AxisItem):
     def __init__(self, *args, **kwargs):
@@ -51,7 +42,7 @@ def sig_handler(sig, event, id, val, tt):
             else:
                 match['vals'][id] = [deque([val])]
             match['tts'][id] = deque([now])
-            match['plots'][id] = None
+            match['curves'][id] = None
         return
     elif val == None:
         for el in range(vec_len):
@@ -81,18 +72,21 @@ def on_map(type, map, event):
             return
         print('  rerouting...')
         vec_len = src[mpr.Property.LENGTH]
+        num_inst = src[mpr.Property.NUM_INSTANCES]
         newsig = dev.add_signal(mpr.Direction.INCOMING, srcname, vec_len, mpr.Type.FLOAT,
-                                None, None, None, 10, sig_handler, mpr.Signal.Event.ALL)
+                                None, None, None, num_inst, sig_handler, mpr.Signal.Event.ALL)
         if not newsig:
             print('  error creating signal', srcnamefull)
             return
+
+        newsig[mpr.Property.EPHEMERAL] = src[mpr.Property.EPHEMERAL]
 
         signals[srcname] = {'sig'       : newsig,
                             'vec_len'   : vec_len,
                             'vals'      : {},
                             'tts'       : {},
                             'pens'      : [pg.mkPen(color=i, width=3) for i in range(vec_len)],
-                            'plots'     : {},
+                            'curves'    : {},
                             'label'     : 0 }
         print('  signals:', signals)
         mpr.Map(src, newsig).push()
@@ -103,8 +97,7 @@ def on_map(type, map, event):
             return
         if dstname in signals:
             print('  freeing local signal', dstname)
-            sigs_to_free.append(signals[dstname]['sig'])
-            del signals[dstname]
+            sigs_to_free.append(signals.pop(dstname))
 
 dev = mpr.Device('signal_plotter')
 dev.add_signal(mpr.Direction.INCOMING, 'connect_here')
@@ -115,13 +108,10 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.graphWidget = pg.PlotWidget()
-        self.setCentralWidget(self.graphWidget)
+        self.layout = pg.GraphicsLayoutWidget(show=True, title='libmapper signal plotter')
+        self.setCentralWidget(self.layout)
 
         self.setWindowTitle('libmapper signal plotter')
-
-        self.graphWidget.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
-        self.graphWidget.showGrid(x=True, y=True)
 
         self.timer = QTimer()
         self.timer.setInterval(25)
@@ -146,9 +136,8 @@ class MainWindow(QMainWindow):
                         break
                     to_pop += 1
 
-                # TODO: use numpy to handle instances, vectors
+                # TODO: use numpy to handle instances, vectors?
 
-                # using deques instead of arrays seems to be slightly more efficient (~1% cpu)
                 for el in range(vec_len):
                     for j in range(to_pop):
                         vals[el].popleft()
@@ -158,28 +147,36 @@ class MainWindow(QMainWindow):
                 if not len (signals[s]['tts'][inst]):
                     continue
 
-                if signals[s]['plots'][inst] == None:
-                    signals[s]['plots'][inst] = [self.graphWidget.plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
+                if signals[s]['curves'][inst] == None:
+                    plot = self.layout.addPlot(row=self.layout.nextRow(), col=0)
+                    plot.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
+
+                    units = signals[s]['sig'][mpr.Property.UNIT]
+                    if units == 'unknown':
+                        units = ''
+                    else:
+                        units = ' (' + units + ')'
+                    plot.setLabel('left', signals[s]['sig'][mpr.Property.NAME] + units)
+
+                    plot.showGrid(x=True, y=True)
+
+                    signals[s]['plot'] = plot
+                    signals[s]['curves'][inst] = [plot.plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
                 else:
                     for el in range(vec_len):
-                        signals[s]['plots'][inst][el].setData(tts, vals[el], connect='finite')
-
-        self.graphWidget.setXRange(then, now, padding=0)
+                        signals[s]['curves'][inst][el].setData(tts, vals[el], connect='finite')
+                signals[s]['plot'].setXRange(then, now)
 
     def timer_event(self):
-        global cleared
-
         dev.poll(10)
 
         while len(sigs_to_free):
-            dev.remove_signal(sigs_to_free.pop())
+            var = sigs_to_free.pop()
+            self.layout.removeItem(var['plot'])
+            dev.remove_signal(var['sig'])
 
         if len(signals):
             self.update_graph()
-            cleared = False
-        elif not cleared:
-            self.graphWidget.clear()
-            cleared = True
 
 def remove_dev():
     global dev
