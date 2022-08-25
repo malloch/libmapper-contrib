@@ -1,5 +1,4 @@
-from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsProxyWidget, QPushButton, QLabel, QSpinBox, QCheckBox
-from PySide6.QtCore import QTimer
+from PySide6 import QtGui, QtWidgets, QtCore
 import pyqtgraph as pg
 import sys, math, time
 from collections import deque
@@ -72,6 +71,14 @@ def on_map(type, map, event):
         print('  ADDED map ', srcname, '->', '<self>/'+dstname)
         if dstname == srcname:
             return
+
+        # check if this plot already exists
+        match = dev.signals().filter(mpr.Property.NAME, srcname)
+        if match:
+            print('plot already exists')
+            map.release()
+            return
+
         print('  rerouting...')
         vec_len = src[mpr.Property.LENGTH]
         num_inst = src[mpr.Property.NUM_INSTANCES]
@@ -101,41 +108,121 @@ def on_map(type, map, event):
             print('  freeing local signal', dstname)
             sigs_to_free.append(signals.pop(dstname))
 
-dev = mpr.Device('signal_plotter')
-dev.add_signal(mpr.Direction.INCOMING, 'connect_here')
-dev.graph().add_callback(on_map, mpr.Type.MAP)
+graph = mpr.Graph()
+graph.add_callback(on_map, mpr.Type.MAP)
 
-class MainWindow(QMainWindow):
+dev = mpr.Device('signal_plotter', graph)
+dummy = dev.add_signal(mpr.Direction.INCOMING, 'connect_here')
+
+class Plotter(QtWidgets.QLabel):
+    def __init__(self, text):
+        super(TempLabel, self).__init__(text)
+        self.setAcceptDrops(True)
+
+    def dragEnterEvent(self, e):
+        print('dragEnterEvent', e)
+        e.accept()
+
+    def dropEvent(self, e):
+        print('dropEvent', e)
+        e.setDropAction(QtCore.Qt.CopyAction)
+        e.accept()
+
+class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.layout = pg.LayoutWidget()
-        self.setCentralWidget(self.layout)
+        self.setAcceptDrops(True)
 
-        self.time_label = QLabel('Time Window:')
-        self.layout.addWidget(self.time_label, row=0, col=0)
+        time_label = QtWidgets.QLabel('Time Window:')
 
-        self.time = QSpinBox()
-        self.time.setRange(1, 60)
-        self.time.setValue(10)
-        self.time.setSuffix(' seconds')
-        self.time.valueChanged.connect(self.update_time)
-        self.layout.addWidget(self.time, row=0, col=1)
+        time_spinbox = QtWidgets.QSpinBox(self)
+        time_spinbox.setRange(1, 60)
+        time_spinbox.setValue(10)
+        time_spinbox.setSuffix(' seconds')
+        time_spinbox.valueChanged.connect(self.update_time)
 
-        self.button_use_2d = QCheckBox('Draw 2D vectors on canvas', self)
-        self.button_use_2d.stateChanged.connect(self.update_use_2d)
-        self.layout.addWidget(self.button_use_2d, row=0, col=3)
+        button_use_2d = QtWidgets.QCheckBox('Draw 2D vectors on canvas', self)
+        button_use_2d.stateChanged.connect(self.update_use_2d)
 
         self.plots = pg.GraphicsLayoutWidget(show=True)
-        self.layout.addWidget(self.plots, row=1, colspan=4)
+#        self.plots.setBackground('w')
+
+        addBelow = QtWidgets.QPushButton('+', self)
+        addBelow.setStyleSheet("font: 22px; border-radius: 5")
+        addBelow.clicked.connect(self.add_plot_below)
+
+        addRight = QtWidgets.QPushButton('+', self)
+        addRight.setStyleSheet("font: 22px; border-radius: 5")
+        addRight.clicked.connect(self.add_plot_right)
 
         self.setWindowTitle('libmapper signal plotter')
 
-        self.timer = QTimer()
+        grid = QtWidgets.QGridLayout()
+        grid.setSpacing(10)
+        grid.addWidget(time_label, 0, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
+        grid.addWidget(time_spinbox, 0, 1, QtCore.Qt.AlignmentFlag.AlignLeft)
+        grid.addWidget(button_use_2d, 0, 3, QtCore.Qt.AlignmentFlag.AlignRight)
+        grid.addWidget(self.plots, 1, 0, 1, 4)
+        grid.addWidget(addRight, 1, 4, 1, 1)
+        grid.addWidget(addBelow, 2, 0, 1, 4)
+
+        grid.setColumnStretch(0, 0)
+        grid.setColumnStretch(1, 0)
+        grid.setColumnStretch(2, 1)
+        grid.setColumnStretch(3, 0)
+        grid.setColumnStretch(4, 0)
+        grid.setRowStretch(0, 0)
+        grid.setRowStretch(1, 2)
+        grid.setRowStretch(2, 0)
+
+        centralWidget = QtWidgets.QWidget()
+        centralWidget.setLayout(grid)
+        self.setCentralWidget(centralWidget)
+
+        self.timer = QtCore.QTimer()
         self.timer.setInterval(25)
         self.timer.timeout.connect(self.timer_event)
         self.timer.start()
+
+    def dragEnterEvent(self, e):
+        print('dragEnterEvent', e)
+        if e.mimeData().hasFormat("text/plain"):
+            print('accepting!')
+            e.accept()
+
+    def dropEvent(self, e):
+        text = e.mimeData().text()
+        print('dropEvent', text)
+
+        if text.startswith('libmapper://'):
+            e.setDropAction(QtCore.Qt.CopyAction)
+            e.accept()
+
+            names = text[12:].split('/')
+            print('adding plot for signal', names)
+
+            if len(names) != 2:
+                return
+
+            d = graph.devices().filter(mpr.Property.NAME, names[0])
+            if not d:
+                print('error: could not find device', names[0])
+                return
+            s = d.next().signals().filter(mpr.Property.NAME, names[1])
+            if not s:
+                print('error: could not find signal', names)
+                return
+            s = s.next()
+            if s[mpr.Property.IS_LOCAL]:
+                print('error: plotting local signals is not allowed')
+                return
+            print('starting dummy map!')
+            mpr.Map(s, dummy).push()
+
+        else:
+            e.reject()
 
     def update_time(self, value):
         print('updating time window to', value)
@@ -155,6 +242,12 @@ class MainWindow(QMainWindow):
 #                for inst in data['vals']:
 #                    del data['curves'][inst]
 #                    data['curves'][inst] = None
+
+    def add_plot_below(self):
+        print('add plot below!')
+
+    def add_plot_right(self):
+        print('add plot right!')
 
     def update_graph(self):
         now = mpr.Time().get_double()
@@ -191,7 +284,7 @@ class MainWindow(QMainWindow):
                 # TODO: use numpy to handle instances, vectors?
                 to_pop = 0
                 for tt in tts:
-                    if tt > then:
+                    if tt > (then - 1):
                         break
                     to_pop += 1
                 for el in range(vec_len):
@@ -240,7 +333,7 @@ def remove_dev():
 import atexit
 atexit.register(remove_dev)
 
-app = QApplication(sys.argv)
+app = QtWidgets.QApplication(sys.argv)
 main = MainWindow()
 main.show()
 app.exec()
