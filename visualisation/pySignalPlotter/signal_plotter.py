@@ -1,4 +1,4 @@
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import QApplication, QMainWindow, QGraphicsProxyWidget, QPushButton, QLabel, QSpinBox, QCheckBox
 from PySide6.QtCore import QTimer
 import pyqtgraph as pg
 import sys, math, time
@@ -9,6 +9,8 @@ signals = {}
 sigs_to_free = []
 
 display_sec = 10.0
+
+use_2d = False
 
 class TimeAxisItem(pg.AxisItem):
     def __init__(self, *args, **kwargs):
@@ -108,8 +110,25 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
-        self.layout = pg.GraphicsLayoutWidget(show=True, title='libmapper signal plotter')
+        self.layout = pg.LayoutWidget()
         self.setCentralWidget(self.layout)
+
+        self.time_label = QLabel('Time Window:')
+        self.layout.addWidget(self.time_label, row=0, col=0)
+
+        self.time = QSpinBox()
+        self.time.setRange(1, 60)
+        self.time.setValue(10)
+        self.time.setSuffix(' seconds')
+        self.time.valueChanged.connect(self.update_time)
+        self.layout.addWidget(self.time, row=0, col=1)
+
+        self.button_use_2d = QCheckBox('Draw 2D vectors on canvas', self)
+        self.button_use_2d.stateChanged.connect(self.update_use_2d)
+        self.layout.addWidget(self.button_use_2d, row=0, col=3)
+
+        self.plots = pg.GraphicsLayoutWidget(show=True)
+        self.layout.addWidget(self.plots, row=1, colspan=4)
 
         self.setWindowTitle('libmapper signal plotter')
 
@@ -118,63 +137,97 @@ class MainWindow(QMainWindow):
         self.timer.timeout.connect(self.timer_event)
         self.timer.start()
 
+    def update_time(self, value):
+        print('updating time window to', value)
+        global display_sec
+        display_sec = value
+
+    def update_use_2d(self, value):
+        print('updating use_2d to', value != 0)
+        global use_2d
+        use_2d = (value != 0)
+
+        # TODO: clear and replot if necessary
+#        for s in signals:
+#            data = signals[s]
+#            if data['vec_len'] == 2 and data['plot']:
+#                data['plot'].clear()
+#                for inst in data['vals']:
+#                    del data['curves'][inst]
+#                    data['curves'][inst] = None
+
     def update_graph(self):
         now = mpr.Time().get_double()
         then = now - display_sec   # 10 seconds ago
         for s in signals:
-            if not len (signals[s]['vals']):
+            data = signals[s]
+            if not len (data['vals']):
                 # no active instances? remove this?
                 continue
 
-            if 'plot' not in signals[s]:
-                plot = self.layout.addPlot(row=self.layout.nextRow(), col=0)
+            if 'plot' in data:
+                plot = data['plot']
+            else:
+                plot = self.plots.addPlot(row=self.plots.nextRow(), col=0)
                 plot.setAxisItems({'bottom': TimeAxisItem(orientation='bottom')})
 
-                units = signals[s]['sig'][mpr.Property.UNIT]
+                units = data['sig'][mpr.Property.UNIT]
                 if units == 'unknown':
                     units = ''
                 else:
                     units = ' (' + units + ')'
-                plot.setLabel('left', signals[s]['sig'][mpr.Property.NAME] + units)
+                plot.setLabel('left', data['sig'][mpr.Property.NAME] + units)
 
                 plot.showGrid(x=True, y=True)
+                data['plot'] = plot
 
-                signals[s]['plot'] = plot
+            updated = False
+            for inst in data['vals']:
+                tts = data['tts'][inst]
+                vals = data['vals'][inst]
+                vec_len = data['vec_len']
 
-            for inst in signals[s]['vals']:
-                tts = signals[s]['tts'][inst]
-                vals = signals[s]['vals'][inst]
-                vec_len = signals[s]['vec_len']
+                # pop samples older than window
+                # TODO: use numpy to handle instances, vectors?
                 to_pop = 0
                 for tt in tts:
                     if tt > then:
                         break
                     to_pop += 1
-
-                # TODO: use numpy to handle instances, vectors?
-
                 for el in range(vec_len):
                     for j in range(to_pop):
                         vals[el].popleft()
                 for j in range(to_pop):
                     tts.popleft()
 
-                if not len (signals[s]['tts'][inst]):
+                if not len (data['tts'][inst]):
                     continue
 
                 if signals[s]['curves'][inst] == None:
-                    signals[s]['curves'][inst] = [signals[s]['plot'].plot(tts, vals[el], pen=signals[s]['pens'][el], connect='finite') for el in range(vec_len)]
+                    if vec_len == 2 and use_2d == True:
+                        signals[s]['curves'][inst] = [plot.plot(vals[0], vals[1], pen=pg.mkPen(color=inst, width=3), connect='finite')]
+                    else:
+                        signals[s]['curves'][inst] = [plot.plot(tts, vals[el], pen=pg.mkPen(color=inst*el+el, width=3), connect='finite') for el in range(vec_len)]
                 else:
-                    for el in range(vec_len):
-                        signals[s]['curves'][inst][el].setData(tts, vals[el], connect='finite')
-                signals[s]['plot'].setXRange(then, now)
+                    if vec_len == 2 and use_2d == True:
+                        signals[s]['curves'][inst][0].setData(vals[0], vals[1], connect='finite')
+                    else:
+                        for el in range(vec_len):
+                            signals[s]['curves'][inst][el].setData(tts, vals[el], connect='finite')
+                updated = True
+
+            if vec_len != 2 or use_2d == False:
+                plot.setXRange(then, now)
+
+            if not updated:
+                signals[s]['plot'].clear()
 
     def timer_event(self):
         dev.poll(10)
 
         while len(sigs_to_free):
             var = sigs_to_free.pop()
-            self.layout.removeItem(var['plot'])
+            self.plots.removeItem(var['plot'])
             dev.remove_signal(var['sig'])
 
         if len(signals):
