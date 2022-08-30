@@ -174,13 +174,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.plotter = Plotter()
 
-        addBelow = QtWidgets.QPushButton('+', self)
-        addBelow.setStyleSheet("font: 22px; border-radius: 5")
-        addBelow.clicked.connect(self.add_plot_below)
-
-        addRight = QtWidgets.QPushButton('+', self)
-        addRight.setStyleSheet("font: 22px; border-radius: 5")
-        addRight.clicked.connect(self.add_plot_right)
+#        addBelow = QtWidgets.QPushButton('+', self)
+#        addBelow.setStyleSheet("font: 22px; border-radius: 5")
+#        addBelow.clicked.connect(self.add_plot_below)
+#
+#        addRight = QtWidgets.QPushButton('+', self)
+#        addRight.setStyleSheet("font: 22px; border-radius: 5")
+#        addRight.clicked.connect(self.add_plot_right)
 
         self.setWindowTitle('libmapper signal plotter')
 
