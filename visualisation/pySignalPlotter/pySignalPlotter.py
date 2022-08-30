@@ -89,7 +89,8 @@ def on_map(type, map, event):
             print('  error creating signal', srcnamefull)
             return
 
-        newsig[mpr.Property.EPHEMERAL] = src[mpr.Property.EPHEMERAL]
+        newsig[mpr.Property.USE_INSTANCES] = True
+        newsig[mpr.Property.EPHEMERAL] = True
 
         signals[srcname] = {'sig'       : newsig,
                             'vec_len'   : vec_len,
@@ -141,6 +142,12 @@ class Plotter(pg.GraphicsLayoutWidget):
 
         return plot
 
+    def remove_plot(self, plot):
+        self.removeItem(plot)
+
+    def next_row(self):
+        self.nextRow()
+
 class HLine(QtWidgets.QFrame):
     def __init__(self):
         super(HLine, self).__init__()
@@ -165,7 +172,7 @@ class MainWindow(QtWidgets.QMainWindow):
         button_use_2d = QtWidgets.QCheckBox('Draw 2D vectors on canvas', self)
         button_use_2d.stateChanged.connect(self.update_use_2d)
 
-        self.plots = Plotter()
+        self.plotter = Plotter()
 
         addBelow = QtWidgets.QPushButton('+', self)
         addBelow.setStyleSheet("font: 22px; border-radius: 5")
@@ -183,7 +190,7 @@ class MainWindow(QtWidgets.QMainWindow):
         grid.addWidget(time_spinbox, 0, 1, QtCore.Qt.AlignmentFlag.AlignLeft)
         grid.addWidget(button_use_2d, 0, 3, QtCore.Qt.AlignmentFlag.AlignRight)
         grid.addWidget(HLine(), 1, 0, 1, 4)
-        grid.addWidget(self.plots, 2, 0, 1, 4)
+        grid.addWidget(self.plotter, 2, 0, 1, 4)
 
         grid.setColumnStretch(0, 0)
         grid.setColumnStretch(1, 0)
@@ -275,7 +282,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if 'plot' in data:
                 plot = data['plot']
             else:
-                plot = self.plots.add_plot(self.plots.nextRow(), 0, data['sig'][mpr.Property.NAME])
+                plot = self.plotter.add_plot(self.plotter.next_row(), 0, data['sig'][mpr.Property.NAME])
                 plot.closeButton.clicked.connect(lambda: self.closePlot(s))
                 data['plot'] = plot
 
@@ -324,7 +331,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         while len(sigs_to_free):
             var = sigs_to_free.pop()
-            self.plots.removeItem(var['plot'])
+            self.plotter.remove_plot(var['plot'])
             dev.remove_signal(var['sig'])
 
         if len(signals):

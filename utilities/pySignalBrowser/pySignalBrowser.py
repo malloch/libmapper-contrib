@@ -9,15 +9,6 @@ show network interfaces, allow setting
 show metadata
 '''
 
-need_update = False
-
-def on_event(type, obj, event):
-    global need_update
-    need_update = True
-
-graph = mpr.Graph()
-graph.add_callback(on_event, mpr.Type.DEVICE | mpr.Type.SIGNAL)
-
 class Tree(QtWidgets.QTreeWidget):
     def __init__(self):
         super(Tree, self).__init__()
@@ -40,10 +31,20 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super(MainWindow, self).__init__()
 
+        self.graph = mpr.Graph(mpr.Type.DEVICE | mpr.Type.SIGNAL)
+        self.graph.add_callback(self.on_event, mpr.Type.DEVICE | mpr.Type.SIGNAL)
+
         self.setWindowTitle('libmapper signal browser')
 
+        self.setGeometry(300, 300, 375, 300)
+
         self.tree = Tree()
-        self.tree.setHeaderLabels(['name', 'type', 'length', 'direction'])
+        self.tree.setHeaderLabels(['name', 'id', 'type', 'length', 'direction'])
+        self.tree.setColumnHidden(1, True)
+        self.tree.setColumnWidth(0, 200)
+        self.tree.setColumnWidth(1, 60)
+        self.tree.setColumnWidth(2, 50)
+        self.tree.setColumnWidth(3, 50)
         self.tree.setSortingEnabled(True)
         self.setCentralWidget(self.tree)
 
@@ -52,34 +53,41 @@ class MainWindow(QtWidgets.QMainWindow):
         self.timer.timeout.connect(self.timer_event)
         self.timer.start()
 
+    def on_event(self, type, obj, event):
+        if type == mpr.Type.DEVICE:
+            if event == mpr.Graph.Event.NEW:
+                dev_item = QtWidgets.QTreeWidgetItem(self.tree, [obj[mpr.Property.NAME]])
+                dev_item.setText(1, str(obj[mpr.Property.ID]))
+                dev_item.setExpanded(True)
+            elif event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
+                items = self.tree.findItems(str(obj[mpr.Property.ID]), QtCore.Qt.MatchFixedString, 1)
+                for item in items:
+                    item = self.tree.takeTopLevelItem(int(self.tree.indexOfTopLevelItem(item)))
+                    del item
+        elif type == mpr.Type.SIGNAL:
+            if event == mpr.Graph.Event.NEW:
+                # find parent device
+                dev_items = self.tree.findItems(str(obj.device()[mpr.Property.ID]), QtCore.Qt.MatchFixedString, 1)
+                for dev_item in dev_items:
+                    sig_item = QtWidgets.QTreeWidgetItem(dev_item, [obj[mpr.Property.NAME], str(obj[mpr.Property.ID]), obj[mpr.Property.TYPE].name.lower(), "{}".format(obj[mpr.Property.LENGTH]), "out" if (obj[mpr.Property.DIRECTION] == mpr.Direction.OUTGOING) else "in"])
+            elif event == mpr.Graph.Event.REMOVED or event == mpr.Graph.Event.EXPIRED:
+                sig_items = self.tree.findItems(str(obj[mpr.Property.ID]), QtCore.Qt.MatchFixedString | QtCore.Qt.MatchRecursive, 1)
+                for sig_item in sig_items:
+                    parent = sig_item.parent()
+                    item = parent.takeChild(int(parent.indexOfChild(sig_item)))
+                    del item
+
     def timer_event(self):
-        global need_update
-        graph.poll(10)
-        if need_update:
-            self.update_tree()
-            need_update = False
+        self.graph.poll(10)
 
-    def update_tree(self):
-        # update list
-        global graph
-        self.tree.clear()
-        for d in graph.devices():
-            dev_item = QtWidgets.QTreeWidgetItem(self.tree, [d[mpr.Property.NAME]])
-            for s in d.signals():
-                s_item = QtWidgets.QTreeWidgetItem(dev_item)
-                s_item.setText(0, s[mpr.Property.NAME])
-                s_item.setText(1, s[mpr.Property.TYPE].name.lower())
-                s_item.setText(2, "{}".format(s[mpr.Property.LENGTH]))
-                s_item.setText(3, s[mpr.Property.DIRECTION].name.lower())
-
-def remove_graph():
-    global graph
-    graph.free()
-
-import atexit
-atexit.register(remove_graph)
+    def remove_graph(self):
+        self.graph.free()
 
 app = QtWidgets.QApplication(sys.argv)
 main = MainWindow()
+
+import atexit
+atexit.register(main.remove_graph)
+
 main.show()
 app.exec()
