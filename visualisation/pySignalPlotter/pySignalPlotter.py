@@ -136,7 +136,8 @@ class Plotter(pg.GraphicsLayoutWidget):
         plot.closeButton = CloseButton(plot)
 
         plot.showGrid(x=True, y=True)
-        plot.setLabel('left', label)
+        plot.setLabel('left', 'value')
+        plot.setTitle(label)
 
         # TODO: add map display?
 
@@ -216,13 +217,29 @@ class MainWindow(QtWidgets.QMainWindow):
     def dropEvent(self, e):
         text = e.mimeData().text()
 
-        if text.startswith('libmapper://'):
+        if text.startswith('libmapper://signal '):
             e.setDropAction(QtCore.Qt.CopyAction)
             e.accept()
 
-            names = text[12:].split('/')
+            # try extracting id first
+            text = text[19:].split(' @id ')
+            if len(text) == 2:
+                id = int(text[1])
+                print('id:', id)
+                s = graph.signals().filter(mpr.Property.ID, id)
+                if s:
+                    s = s.next()
+                    if s and not s[mpr.Property.IS_LOCAL]:
+                        print('found signal by id')
+                        mpr.Map(s, dummy).push()
+                        return;
+                text = text[0]
 
+            # fall back to using device and signal names
+            names = text.split('/')
+            print('names:', names)
             if len(names) != 2:
+                print('error retrieving device and signal names')
                 return
 
             d = graph.devices().filter(mpr.Property.NAME, names[0])
@@ -238,9 +255,6 @@ class MainWindow(QtWidgets.QMainWindow):
                 print('error: plotting local signals is not allowed')
                 return
             mpr.Map(s, dummy).push()
-
-        else:
-            e.reject()
 
     def update_time(self, value):
         print('updating time window to', value)
@@ -275,9 +289,6 @@ class MainWindow(QtWidgets.QMainWindow):
         then = now - display_sec   # 10 seconds ago
         for s in signals:
             data = signals[s]
-            if not len (data['vals']):
-                # no active instances? remove this?
-                continue
 
             if 'plot' in data:
                 plot = data['plot']
@@ -285,6 +296,10 @@ class MainWindow(QtWidgets.QMainWindow):
                 plot = self.plotter.add_plot(self.plotter.next_row(), 0, data['sig'][mpr.Property.NAME])
                 plot.closeButton.clicked.connect(lambda: self.closePlot(s))
                 data['plot'] = plot
+
+            if not len (data['vals']):
+                # no active instances? remove this?
+                continue
 
             updated = False
             for inst in data['vals']:

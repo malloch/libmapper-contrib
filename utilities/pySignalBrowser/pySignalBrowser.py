@@ -15,12 +15,12 @@ class Tree(QtWidgets.QTreeWidget):
         self.setDragEnabled(True)
 
     def mouseMoveEvent(self, e):
-        item = self.itemAt(e.pos())
+        item = self.itemAt(e.position().toPoint())
         if item == None or item.parent() == None:
             return
 
         mimeData = QtCore.QMimeData()
-        mimeData.setText('libmapper://' + item.parent().text(0) + '/' + item.text(0))
+        mimeData.setText('libmapper://signal ' + item.parent().text(0) + '/' + item.text(0) + ' @id ' + item.text(1))
         drag = QtGui.QDrag(self)
         drag.setMimeData(mimeData)
 
