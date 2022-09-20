@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-import sys, math, mapper as mpr
+import sys, math, libmapper as mpr
 try:
     import Tkinter as tkinter
 except:
@@ -13,9 +13,9 @@ def on_sig(n,v):
     values[n] = v
     redraw()
 
-dev = mpr.device("octovisualiser")
-sigs = [dev.add_signal(mpr.DIR_IN, "arm.%d"%n, 1, mpr.FLT, None, 0.0, 1.0, None,
-                       (lambda n: lambda s,i,f,t: on_sig(n,f))(n), mpr.SIG_UPDATE)
+dev = mpr.Device("octovisualiser")
+sigs = [dev.add_signal(mpr.Direction.INCOMING, "arm.%d"%n, 1, mpr.Type.FLOAT, None, 0.0, 1.0, None,
+                       (lambda n: lambda s,e,i,f,t: on_sig(n,f))(n), mpr.Signal.Event.UPDATE)
         for n in range(N)]
 
 root = tkinter.Tk()
