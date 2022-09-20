@@ -17,6 +17,5 @@ This interface accepts drag and drop events with the libmapper Mime type.
 ## Roadmap / Todo list
 
 * enable smooth switching between 2d plotting modes
-* add a signal picker for use without a separate session manager
-* add a 'x' button to plots to remove them
-* add a '+' button to add plots
+* add a signal picker for use without a separate session manager?
+    * add a '+' button to add plots

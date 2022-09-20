@@ -138,7 +138,7 @@ void mapHandler(Graph&& graph, Map&& map, Graph::Event evt)
         // connect the new signal
         mapper::Map newmap(src, sig);
 
-        newmap.set_property(Property::EXPRESSION, "y=linear(x,?,?,0,5)");
+        newmap.set_property(Property::EXPRESSION, "y=x");
         newmap[Property::PROCESS_LOCATION] = Map::Location::DST;
         newmap.push();
         break;
