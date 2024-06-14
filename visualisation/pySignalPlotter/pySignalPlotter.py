@@ -27,7 +27,7 @@ def sig_handler(sig, event, id, val, tt):
     now = tt.get_double()
 
     if event == mpr.Signal.Event.REL_UPSTRM:
-        sig.instance(id).release()
+        sig.Instance(id).release()
     elif event != mpr.Signal.Event.UPDATE:
         return
 
@@ -41,8 +41,8 @@ def sig_handler(sig, event, id, val, tt):
     vec_len = match['vec_len']
 
     if id not in match['vals']:
-        # don't bother recording and instance release
         if val != None:
+            # don't bother recording an instance release
             if isinstance(val, list):
                 match['vals'][id] = [deque([val[el]]) for el in range(vec_len)]
             else:
@@ -60,6 +60,7 @@ def sig_handler(sig, event, id, val, tt):
         match['vals'][id][0].append(val)
     match['tts'][id].append(now)
 
+# TODO: handle convergent maps or explicitly disallow them
 def on_map(type, map, event):
     src = map.signals(mpr.Location.SOURCE)[0]
     dst = map.signals(mpr.Location.DESTINATION)[0]
@@ -77,7 +78,7 @@ def on_map(type, map, event):
         # check if this plot already exists
         match = dev.signals().filter(mpr.Property.NAME, srcname)
         if match:
-            print('plot already exists')
+            print('plot', srcname, 'already exists')
             map.release()
             return
 
@@ -233,10 +234,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         print('found signal by id')
                         mpr.Map(s, dummy).push()
                         return;
+            if type(text) is list:
                 text = text[0]
 
             # fall back to using device and signal names
-            names = text.split('/')
+            names = text.split('/', 1)
             print('names:', names)
             if len(names) != 2:
                 print('error retrieving device and signal names')
