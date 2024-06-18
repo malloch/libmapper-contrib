@@ -329,7 +329,7 @@ class MainWindow(QtWidgets.QMainWindow):
                     if vec_len == 2 and use_2d == True:
                         signals[s]['curves'][inst] = [plot.plot(vals[0], vals[1], pen=pg.mkPen(color=inst, width=3), connect='finite')]
                     else:
-                        signals[s]['curves'][inst] = [plot.plot(tts, vals[el], pen=pg.mkPen(color=inst*el+el, width=3), connect='finite') for el in range(vec_len)]
+                        signals[s]['curves'][inst] = [plot.plot(tts, vals[el], pen=pg.mkPen(color=inst*vec_len+el, width=3), connect='finite') for el in range(vec_len)]
                 else:
                     if vec_len == 2 and use_2d == True:
                         signals[s]['curves'][inst][0].setData(vals[0], vals[1], connect='finite')
