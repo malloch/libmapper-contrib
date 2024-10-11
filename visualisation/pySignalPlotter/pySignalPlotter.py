@@ -33,7 +33,7 @@ def sig_handler(sig, event, id, val, tt):
 
     # Find signal
     try:
-        match = signals[sig['name']]
+        match = signals[sig[mpr.Property.NAME]]
     except:
         print('signal not found')
         return
@@ -41,8 +41,8 @@ def sig_handler(sig, event, id, val, tt):
     vec_len = match['vec_len']
 
     if id not in match['vals']:
-        if val != None:
-            # don't bother recording an instance release
+        # don't bother recording an instance release
+        if event != mpr.Signal.Event.REL_UPSTRM:
             if isinstance(val, list):
                 match['vals'][id] = [deque([val[el]]) for el in range(vec_len)]
             else:
@@ -50,7 +50,7 @@ def sig_handler(sig, event, id, val, tt):
             match['tts'][id] = deque([now])
             match['curves'][id] = None
         return
-    elif val == None:
+    elif event == mpr.Signal.Event.REL_UPSTRM:
         for el in range(vec_len):
             match['vals'][id][el].append(float('nan'))
     elif isinstance(val, list):
@@ -64,13 +64,13 @@ def sig_handler(sig, event, id, val, tt):
 def on_map(type, map, event):
     src = map.signals(mpr.Location.SOURCE)[0]
     dst = map.signals(mpr.Location.DESTINATION)[0]
-    if src['is_local']:
+    if map[mpr.Property.NUM_SIGNALS_IN] > 1 or src[mpr.Property.IS_LOCAL]:
         map.release()
         return
-    elif not dst['is_local']:
+    elif not dst[mpr.Property.IS_LOCAL]:
         return
-    srcname = src.device()['name']+'/'+src['name']
-    dstname = dst['name']
+    srcname = src.device()[mpr.Property.NAME]+'/'+src[mpr.Property.NAME]
+    dstname = dst[mpr.Property.NAME]
     if event == mpr.Graph.Event.NEW:
         if dstname == srcname:
             return
@@ -85,7 +85,7 @@ def on_map(type, map, event):
         vec_len = src[mpr.Property.LENGTH]
         num_inst = src[mpr.Property.NUM_INSTANCES]
         newsig = dev.add_signal(mpr.Direction.INCOMING, srcname, vec_len, mpr.Type.FLOAT,
-                                None, None, None, num_inst, sig_handler, mpr.Signal.Event.ALL)
+                                None, None, None, num_inst, sig_handler, mpr.Signal.Event.REL_UPSTRM | mpr.Signal.Event.UPDATE)
         if not newsig:
             print('  error creating signal', srcnamefull)
             return
