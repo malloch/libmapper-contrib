@@ -64,10 +64,13 @@ def sig_handler(sig, event, id, val, tt):
 def on_map(type, map, event):
     src = map.signals(mpr.Location.SOURCE)[0]
     dst = map.signals(mpr.Location.DESTINATION)[0]
-    if map[mpr.Property.NUM_SIGNALS_IN] > 1 or src[mpr.Property.IS_LOCAL]:
+    if src[mpr.Property.IS_LOCAL]:
         map.release()
         return
     elif not dst[mpr.Property.IS_LOCAL]:
+        return
+    elif map[mpr.Property.NUM_SIGNALS_IN] > 1:
+        map.release()
         return
     srcname = src.device()[mpr.Property.NAME]+'/'+src[mpr.Property.NAME]
     dstname = dst[mpr.Property.NAME]
